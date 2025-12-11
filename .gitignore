@@ -1,0 +1,15 @@
+outputs
+datasets
+wandb
+./outputs
+./datasets
+./checkpoints
+./wandb
+./lightning_logs
+Equvariant_Model_Distillation_V2/outputs
+
+__pycache__
+*.pyc
+*.so
+*.pt
+*.ckpt
