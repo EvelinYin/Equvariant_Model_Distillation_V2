@@ -1,6 +1,6 @@
 import torch
 import math
-from ..utils import trilinear_interpolation
+from ..equ_utils import trilinear_interpolation
 from .group_kernel_base import GroupKernelBase
 
 class InterpolativeGroupKernel(GroupKernelBase):
@@ -45,14 +45,24 @@ class InterpolativeGroupKernel(GroupKernelBase):
         )
         ## AND ENDS HERE ## 
         
+        # transformed_weight = []
+        # # We loop over all group elements and retrieve weight values for
+        # # the corresponding transformed grids over R2xH.
+        # for grid_idx in range(self.group.elements().numel()):
+        #     transformed_weight.append(
+        #         trilinear_interpolation(weight, self.transformed_grid_R2xH[:, grid_idx, :, :, :])
+        #     )
+        # transformed_weight = torch.stack(transformed_weight)
+        
         transformed_weight = []
-        # We loop over all group elements and retrieve weight values for
-        # the corresponding transformed grids over R2xH.
-        for grid_idx in range(self.group.elements().numel()):
-            transformed_weight.append(
-                trilinear_interpolation(weight, self.transformed_grid_R2xH[:, grid_idx, :, :, :])
-            )
+        
+        for g in range(self.group.elements().numel()):
+            f_weight = self.group.trans_weight(weight, g)
+            f_weight = self.group.roll_weight(f_weight, g)
+            transformed_weight.append(f_weight)
+        
         transformed_weight = torch.stack(transformed_weight)
+        
         
         # Separate input and output channels.
         transformed_weight = transformed_weight.view(
@@ -66,8 +76,11 @@ class InterpolativeGroupKernel(GroupKernelBase):
         
         
 
-        # Put out channel dimension before group dimension. We do this
-        # to be able to use pytorched Conv2D. Details below!
+        # # Put out channel dimension before group dimension. We do this
+        # # to be able to use pytorched Conv2D. Details below!
         transformed_weight = transformed_weight.transpose(0, 1)
+        
+
+
         
         return transformed_weight

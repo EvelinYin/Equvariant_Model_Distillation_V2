@@ -59,7 +59,34 @@ class GroupBase(torch.nn.Module):
         raise NotImplementedError()
 
     
-    def get_shared_weight_linear(self, in_features, out_features, bias=True):
+    def get_shared_weight_linear_weights(self, in_features, out_features):
+        raise NotImplementedError()
+
+    
+
+    def get_channel_attention(self, q, k, v, head_dim, temperature, attn_drop=None):
+        raise NotImplementedError() 
+
+
+    def roll_group(self, x):
+        """ Roll input feature maps defined over the group according to the group action.
+
+        @param x: Feature maps defined over the group.
+        """
+        raise NotImplementedError()
+    
+    def trans_weight(self, x, g):
+        """ Transform weights defined over the group according to the group action.
+
+        @param x: Weights defined over the group.
+        """
+        raise NotImplementedError()
+    
+    def roll_weight(self, x, g):
+        """ Roll weights defined over the group according to the group action.
+
+        @param x: Weights defined over the group.
+        """
         raise NotImplementedError()
 
     def normalize_group_elements(self, h):

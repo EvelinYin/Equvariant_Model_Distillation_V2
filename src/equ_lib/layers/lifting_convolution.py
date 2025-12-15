@@ -1,6 +1,6 @@
 import torch
 from ..kernels.interpolative_lifting_kernel import InterpolativeLiftingKernel
-from ..utils import check_input_compatibility
+from ..equ_utils import check_input_compatibility
 
 class LiftingConvolution(torch.nn.Module):
 

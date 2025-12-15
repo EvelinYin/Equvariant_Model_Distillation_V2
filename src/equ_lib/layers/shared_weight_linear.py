@@ -33,7 +33,7 @@ class SharedWeightLinear(nn.Module):
     def forward(self, x, debug=False):
         '''
         x: (batchsize, N, n_group_elements, C)
-        output: (batchsize, N, n_group_elements, out_channel)
+        output: (batchsize, N, n_group_elements*out_channel)
         
         '''
         
@@ -65,8 +65,7 @@ class SharedWeightLinear(nn.Module):
         return F.linear(x, W, stacked_bias).reshape(
             x.shape[0],
             x.shape[1],
-            self.n_group_elements,
             -1
-        )  # (batchsize, N, n_group_elements, out_channel)
+        )  # (batchsize, N, n_group_elements*out_channel)
 
 

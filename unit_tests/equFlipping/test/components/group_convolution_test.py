@@ -2,7 +2,7 @@ import torch
 
 from src.equ_lib.layers.group_convolution import GroupConvolution
 from src.equ_lib.groups.flipping_group import FlipGroup
-from src.equ_lib.utils import gflip
+from src.equ_lib.equ_utils import gflip
 
 def test_group_convolution_forward():
     in_channels = 3
@@ -18,6 +18,7 @@ def test_group_convolution_forward():
                                 kernel_size=kernel_size,
                                 in_channels=in_channels,
                                 out_channels=out_channels,
+                                stride=kernel_size,
                                 padding=padding)
 
 
@@ -50,6 +51,7 @@ def test_group_convolution_backward():
                                 kernel_size=kernel_size,
                                 in_channels=in_channels,
                                 out_channels=out_channels,
+                                stride=kernel_size,
                                 padding=padding)
 
 
@@ -59,7 +61,8 @@ def test_group_convolution_backward():
     optimizer = torch.optim.Adam(layer.parameters(), lr=0.01)
     
     x = torch.randn(batchsize, 2, in_channels, S, S).to(torch.float64)
-    target = torch.randn(batchsize, 2, out_channels, S - kernel_size + 1, S - kernel_size + 1).to(torch.float64)
+    h_out = (S - kernel_size + (2 * padding)) / kernel_size + 1
+    target = torch.randn(batchsize, 2, out_channels, int(h_out), int(h_out)).to(torch.float64)
     
     for _ in range(100):
         optimizer.zero_grad()

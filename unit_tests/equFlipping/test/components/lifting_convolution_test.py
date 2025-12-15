@@ -2,7 +2,7 @@ import torch
 
 from src.equ_lib.layers.lifting_convolution import LiftingConvolution
 from src.equ_lib.groups.flipping_group import FlipGroup
-from src.equ_lib.utils import gflip
+from src.equ_lib.equ_utils import gflip
 
 def test_lifting_convolution_forward():
     in_channels = 3

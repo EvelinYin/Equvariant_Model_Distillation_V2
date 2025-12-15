@@ -1,8 +1,8 @@
 import torch
 import math
-from src.models.ResNet50.equ_resnet import EquBottleneck, EquResNet
+from src.models.ResNet50.equ_resnet import EquBottleneck, EquResNet, Bottleneck, ResNet
 from src.equ_lib.groups.flipping_group import FlipGroup
-from src.equ_lib.utils import gflip, BN2C_to_B2CHW, B2CHW_to_BN2C
+from src.equ_lib.equ_utils import gflip, BN2C_to_B2CHW, B2CHW_to_BN2C
 
 def test_resnet_forward():
     in_channels = 3
@@ -10,11 +10,20 @@ def test_resnet_forward():
     num_classes = 10
     S = 224
 
+    # resnet_layer = ResNet( Bottleneck, [3, 4, 6, 3], num_classes=num_classes)
+    # resnet_layer.eval()
+    # x = torch.randn(batchsize, in_channels, S, S).to(torch.float64)
+    # resnet_layer = resnet_layer.to(torch.float64)
+    # resnet_layer(x)
+    # breakpoint()
+
     flipping_group = FlipGroup()
     
     layer = EquResNet( EquBottleneck, [3, 4, 6, 3], 
                       num_classes=num_classes, 
                       group=flipping_group)
+    
+    
 
 
     layer.eval()

@@ -23,6 +23,9 @@ class EquBottleneck(Bottleneck):
             bias=False
         )
         
+        self.bn1   = nn.BatchNorm2d(planes*self.group.order)
+        
+        
         self.conv2 = GroupConvolution(
             group=group,
             in_channels=planes,
@@ -33,6 +36,9 @@ class EquBottleneck(Bottleneck):
             bias=False
         )
         
+        self.bn2   = nn.BatchNorm2d(planes*self.group.order)
+        
+        
         self.conv3 = GroupConvolution(
             group=group,
             in_channels=planes,
@@ -42,6 +48,8 @@ class EquBottleneck(Bottleneck):
             stride=1,
             bias=False
         )
+        self.bn3   = nn.BatchNorm2d(planes * self.expansion * self.group.order)
+        
 
     def forward(self, x):
         # Implement the forward pass for the equivariant bottleneck
@@ -91,6 +99,7 @@ class EquResNet(ResNet):
             stride=2,
             bias=False
         )
+        self.bn1 = nn.BatchNorm2d(128)
         
         # ResNet stages (C2, C3, C4, C5)
         self.layer1 = self._make_layer(block,  64, layers[0], stride=1, group=group)
@@ -125,7 +134,7 @@ class EquResNet(ResNet):
                     stride=stride,
                     bias=False
                 ),
-                nn.BatchNorm2d(planes * block.expansion)
+                nn.BatchNorm2d(planes * block.expansion * 2)
             )
 
         layers = []
@@ -144,17 +153,17 @@ class EquResNet(ResNet):
     
     def _BCHW_to_B2CHW(self, x):
         B, C, H, W = x.shape
-        return x.reshape(B, -1, C, H, W)
+        return x.reshape(B, self.group.order, -1, H, W)
     
     def forward(self, x):
         x = self.lifting_layer(x)
         x = self.conv1(x)
         
-        breakpoint()
         x = self.bn1(self._B2CHW_to_BCHW(x))
         x = self.relu(x)
         x = self.maxpool(x)
 
+        breakpoint()
         x = self.layer1(self._BCHW_to_B2CHW(x))
         x = self.layer2(x)
         x = self.layer3(x)

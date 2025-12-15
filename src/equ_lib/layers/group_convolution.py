@@ -1,7 +1,7 @@
 import torch
 import math
 from ..kernels.interpolative_group_kernel import InterpolativeGroupKernel
-from ..utils import check_input_compatibility
+from ..equ_utils import check_input_compatibility
 
 
 class GroupConvolution(torch.nn.Module):

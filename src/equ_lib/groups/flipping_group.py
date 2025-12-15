@@ -72,12 +72,50 @@ class FlipGroup(GroupBase):
         return [a, b]
     
     
-    # def get_shared_weight_linear_bias(self, out_features):
-    #     bias = nn.Parameter(torch.zeros(out_features))
+    def get_channel_attention(self, q, k, v, head_dim, temperature, attn_drop=None):
+        attn_1 = q[:, :, :, :head_dim] @ k[:, :, :, :head_dim].transpose(-2, -1)
+        attn_2 = q[:, :, :, head_dim:] @ k[:, :, :, head_dim:].transpose(-2, -1)
         
-    #     return bias
+        attn_1 = attn_1 / temperature
+        attn_2 = attn_2 / temperature
+        
+        attn_1 = attn_1.softmax(dim=-1)
+        attn_2 = attn_2.softmax(dim=-1)
+        
+        if attn_drop is not None:
+            attn_1 = attn_drop(attn_1)
+            attn_2 = attn_drop(attn_2)
+        
+        x1 = attn_1 @ v[:, :, :, :head_dim]
+        x2 = attn_2 @ v[:, :, :, head_dim:]
+        
+        x = torch.cat([x1, x2], dim=-1)
+        
+        return x
+        
+    
+    def roll_group(self, x):
+        B, N, C = x.shape
+        x = x.reshape(B, N, 2, -1)
+        x = torch.roll(x, shifts=1, dims=2)
+        return x.reshape(B, N, C)
     
     
+    def trans_weight(self, x, g):
+        if g == 0:
+            return x
+        elif g == 1:
+            return torch.flip(x, dims=[-1])
+    
+    
+    def roll_weight(self, x, g):
+        if g == 0:
+            return x
+        elif g == 1:
+            C, G, H, W = x.shape
+            return torch.roll(x, shifts=1, dims=1)
+
+        
     # def determinant(self, h):
     #     h = torch.as_tensor(h)
     #     # det(Identity) = 1, det(Flip) = -1

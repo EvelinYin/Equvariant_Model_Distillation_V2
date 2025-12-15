@@ -2,7 +2,7 @@ import torch
 import math
 
 from .lifting_kernel_base import LiftingKernelBase
-from ..utils import bilinear_interpolation
+from ..equ_utils import bilinear_interpolation
 
 class InterpolativeLiftingKernel(LiftingKernelBase):
 
@@ -42,13 +42,18 @@ class InterpolativeLiftingKernel(LiftingKernelBase):
         
 
         # Sample the transformed kernels.
-        transformed_weight = []
-        for spatial_grid_idx in range(self.group.elements().numel()):
-            transformed_weight.append(
-                bilinear_interpolation(weight, self.transformed_grid_R2[:, spatial_grid_idx, :, :])
-            )
-        transformed_weight = torch.stack(transformed_weight)
+        # transformed_weight = []
+        # for spatial_grid_idx in range(self.group.elements().numel()):
+        #     transformed_weight.append(
+        #         bilinear_interpolation(weight, self.transformed_grid_R2[:, spatial_grid_idx, :, :])
+        #     )
+        # transformed_weight = torch.stack(transformed_weight)
         
+        transformed_weight = []
+        for g in range(self.group.elements().numel()):
+            f_weight = self.group.trans_weight(weight, g)
+            transformed_weight.append(f_weight)
+        transformed_weight = torch.stack(transformed_weight)
 
         
             

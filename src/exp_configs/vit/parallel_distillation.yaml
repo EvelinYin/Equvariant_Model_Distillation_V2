@@ -1,0 +1,109 @@
+# =========================
+# Data configuration
+# =========================
+data:
+  dataset_name: cifar100
+  data_dir: ./datasets
+  imagnet_normalization: true
+  batch_size: 32
+  num_workers: 16
+  num_classes: 100
+
+
+# =========================
+# Student model configuration
+# =========================
+student_model:
+  model_structure: equ_vit
+  group: FlipGroup   # FlipGroup or RotationGroup
+
+  vit_config:
+    img_size: 224
+    patch_size: 16
+    stride: 1
+    in_channels: 3
+    embed_dim: 768
+    depth: 12
+    n_heads: 12
+    mlp_ratio: 4
+    pos_embed: SymmetricPosEmbed
+    attention_per_channel: true
+    group_attn_channel_pooling: false
+
+
+
+# =========================
+# Teacher model configuration
+# =========================
+teacher_model:
+  model_structure: pretrained_ViT
+
+  pretrained_vit_config:
+    model_name: google/vit-base-patch16-224
+    num_classes: 100
+
+
+
+
+# =========================
+# Student training configuration
+# =========================
+student_train:
+  strategy: parallel_distillation
+  epochs: 150
+  learning_rate: 2e-5
+  temperature: 3.0
+  alpha: 0.7
+
+  student_ckpt_path: null
+  train_equ_w_gt: false
+
+  scheduler_type: cosine
+  scheduler_warmup_epochs: 0
+  scheduler_step_size: 5
+  scheduler_gamma: 0.1
+
+  print_log_every_n_steps: 50
+
+
+# =========================
+# Teacher checkpoint
+# =========================
+teacher_train:
+  teacher_ckpt_path: "/home/yin178/Equvariant_Model_Distillation_V2/outputs/CIFAR100/pretrained_ViT/teacher/google/vit-base-patch16-224/best_fixed.ckpt"
+
+
+
+# =========================
+# Parallel layer distillation
+# =========================
+parallel_layer_distillation:
+  teacher_layer_names: [model.model.vit.encoder.layer.1, model.model.vit.encoder.layer.3,
+                        model.model.vit.encoder.layer.5, model.model.vit.encoder.layer.7,
+                        model.model.vit.encoder.layer.9, model.model.vit.encoder.layer.11,
+                        model.model.classifier]
+  student_layer_names: [blocks.1, blocks.3,
+                        blocks.5, blocks.7,
+                        blocks.9, blocks.11,
+                        head]
+  learnable_projection: false
+
+
+# =========================
+# Logging configuration
+# =========================
+logging:
+  project_name: equvariant-distillation
+  entity: null
+  log_frequency: 50
+  outputs_dir: ./outputs
+  wandb_name: pretrained_ViT_parallel_distillation
+  wandb_mode: online
+
+
+# =========================
+# Global configuration
+# =========================
+device: cuda
+seed: 42
+precision: 16-mixed # "32" or "16-mixed"

@@ -1,10 +1,10 @@
 import torch
 import math
-from src.equ_lib.layers.shared_weight_linear import SharedWeightLinear
+from src.equ_lib.layers.channel_attention import EquAttentionPerChannel
 from src.equ_lib.groups.flipping_group import FlipGroup
-from src.equ_lib.equ_utils import gflip, BNC_to_B2CHW, B2CHW_to_BNC, BN2C_to_B2CHW, B2CHW_to_BN2C
+from src.equ_lib.equ_utils import gflip, BN2C_to_B2CHW, B2CHW_to_BN2C
 
-def test_shared_weight_linear_forward():
+def test_channel_attention_forward():
     in_channels = 4
     out_channels = 2
     N = 4
@@ -13,13 +13,14 @@ def test_shared_weight_linear_forward():
 
     flipping_group = FlipGroup()
     
-    layer = SharedWeightLinear( in_channel=in_channels,
-                                out_channel=out_channels,
-                                group=flipping_group)
+    layer = EquAttentionPerChannel(dim=in_channels,
+                                           num_heads=2,
+                                           group=flipping_group)        
 
 
     layer.eval()
     layer = layer.to(torch.float64)
+    # breakpoint()
 
     x = torch.randn(batchsize, N, 2, in_channels).to(torch.float64)
     
@@ -30,22 +31,22 @@ def test_shared_weight_linear_forward():
     # B,2,C,sqrt(N),sqrt(N) --> B,N,2,C
     reshaped_fx = B2CHW_to_BN2C(fx)
     
-    out_x = layer(x)
-    out_fx = layer(reshaped_fx)
+    out_x = layer(x.flatten(2))
+    out_fx = layer(reshaped_fx.flatten(2))
     
 
     # B,N,2,C --> B,2,C,sqrt(N),sqrt(N)
-    reshaped_out_x = BNC_to_B2CHW(out_x)
+    out_x = out_x.view(batchsize, N, 2, in_channels)
+    reshaped_out_x = BN2C_to_B2CHW(out_x)
     f_out_x = gflip(reshaped_out_x)
     
     # B,2,C,sqrt(N),sqrt(N) --> B,N,2,C
-    f_out_x = B2CHW_to_BNC(f_out_x)
-    
+    f_out_x = B2CHW_to_BN2C(f_out_x).flatten(2)
     
     return torch.norm(f_out_x-out_fx).item()
  
     
-def test_shared_weight_linear_backward():
+def test_channel_attention_backward():
     in_channels = 4
     out_channels = 2
     N = 4
@@ -54,10 +55,9 @@ def test_shared_weight_linear_backward():
 
     flipping_group = FlipGroup()
     
-    layer = SharedWeightLinear( in_channel=in_channels,
-                                out_channel=out_channels,
-                                group=flipping_group,
-                                )
+    layer = EquAttentionPerChannel(dim=in_channels,
+                                           num_heads=2,
+                                           group=flipping_group)    
 
 
     layer.eval()
@@ -65,15 +65,15 @@ def test_shared_weight_linear_backward():
 
     
     
-    optimizer = torch.optim.Adam(layer.parameters(), lr=0.01)
+    optimizer = torch.optim.Adam(layer.parameters(), lr=0.1)
     
     x = torch.randn(batchsize, N, 2, in_channels).to(torch.float64)
-    target = torch.randn(batchsize, N, 2*out_channels).to(torch.float64)
+    target = torch.randn(batchsize, N, 2, in_channels).to(torch.float64)
     
-    for _ in range(100):
+    for _ in range(1000):
         optimizer.zero_grad()
-        output = layer(x)
-        loss = torch.nn.functional.mse_loss(output, target)
+        output = layer(x.flatten(2))
+        loss = torch.nn.functional.mse_loss(output, target.flatten(2))
         loss.backward()
         optimizer.step()
     
@@ -86,11 +86,11 @@ def test_shared_weight_linear_backward():
     fx = gflip(reshaped_x)
     reshaped_fx = B2CHW_to_BN2C(fx)
 
-    out_x = layer(x)
-    out_fx = layer(reshaped_fx)
+    out_x = layer(x.flatten(2))
+    out_fx = layer(reshaped_fx.flatten(2))
     
-    # breakpoint()
-    f_out_x = gflip(BNC_to_B2CHW(out_x))
-    f_out_x = B2CHW_to_BNC(f_out_x)
+    out_x = out_x.view(batchsize, N, 2, in_channels)
+    f_out_x = gflip(BN2C_to_B2CHW(out_x))
+    f_out_x = B2CHW_to_BN2C(f_out_x).flatten(2)
 
     return torch.norm(f_out_x-out_fx).item()

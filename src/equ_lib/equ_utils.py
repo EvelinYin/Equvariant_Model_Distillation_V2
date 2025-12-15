@@ -70,6 +70,16 @@ def B2CHW_to_BN2C(x):
     B, _, C, H, W = x.shape
     N = H * W
     return x.permute(0,3,4,1,2).reshape(B, N, 2, C)
+
+def BNC_to_B2CHW(x):
+    B, N, C = x.shape
+    sqrt_N = int(math.sqrt(N))
+    return x.reshape(B, sqrt_N, sqrt_N, C).permute(0,3,1,2).reshape(B, 2, -1, sqrt_N, sqrt_N)
+
+def B2CHW_to_BNC(x):
+    B, _, C, H, W = x.shape
+    N = H * W
+    return x.permute(0,3,4,1,2).reshape(B, N, -1)
     
 
 def check_input_compatibility(height, width, padding, kernel_size, stride):
