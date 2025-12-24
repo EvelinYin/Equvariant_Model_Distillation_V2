@@ -58,16 +58,18 @@ def test_group_convolution_backward():
     layer = layer.to(torch.float64)
     
     
-    optimizer = torch.optim.Adam(layer.parameters(), lr=0.01)
+    optimizer = torch.optim.Adam(layer.parameters(), lr=100000)
     
     x = torch.randn(batchsize, 2, in_channels, S, S).to(torch.float64)
     h_out = (S - kernel_size + (2 * padding)) / kernel_size + 1
     target = torch.randn(batchsize, 2, out_channels, int(h_out), int(h_out)).to(torch.float64)
     
-    for _ in range(100):
+    for i in range(1000):
         optimizer.zero_grad()
         output = layer(x)
-        loss = torch.nn.functional.mse_loss(output, target)
+        # loss = torch.nn.functional.mse_loss(output, target)
+        loss = -torch.norm(output)
+        print(f"Step {i}, norm: {torch.norm(output)}")
         loss.backward()
         optimizer.step()
     

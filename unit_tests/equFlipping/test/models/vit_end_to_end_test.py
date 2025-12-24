@@ -80,29 +80,36 @@ def test_vit_backward():
     
 
     layer.eval()
-    layer = layer.to(torch.float64)
+    layer = layer.to(torch.float64).cuda()
 
     
     
-    optimizer = torch.optim.Adam(layer.parameters(), lr=0.1)
+
+    # target = torch.randn(batchsize, 100).to(torch.float64)
+    # loss = torch.nn.functional.mse_loss(output, target)
+        
+    x = torch.randn(batchsize, 3, img_size, img_size).to(torch.float64).cuda()
+    fx = torch.flip(x, dims=(-1,)).cuda()
+    optimizer = torch.optim.Adam(layer.parameters(), lr=100000)
     
-    x = torch.randn(batchsize, 3, img_size, img_size).to(torch.float64)
-    target = torch.randn(batchsize, 100).to(torch.float64)
-    
-    for _ in range(100):
+    for i in range(1000):
         optimizer.zero_grad()
         output = layer(x)
-        loss = torch.nn.functional.mse_loss(output, target)
+        out_fx = layer(fx)
+        
+        # Try to maximize the equivariance error 
+        loss = -torch.norm(output-out_fx)
+        print(f"Step {i}, norm: {torch.norm(output)}")
         loss.backward()
         optimizer.step()
     
     
-
     layer.eval()
-    x = torch.randn(batchsize, 3, img_size, img_size).to(torch.float64)
-    fx = torch.flip(x, dims=(-1,))
+    x = torch.randn(batchsize, 3, img_size, img_size).to(torch.float64).cuda()
+    fx = torch.flip(x, dims=(-1,)).cuda()
 
     out_x = layer(x)
     out_fx = layer(fx)
     
-    return torch.norm(out_x-out_fx).item()
+    # Report the relative equivariance error
+    return (torch.norm(out_x-out_fx)/torch.norm(out_fx)).item()

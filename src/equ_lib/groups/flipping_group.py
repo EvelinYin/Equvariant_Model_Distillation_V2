@@ -72,7 +72,7 @@ class FlipGroup(GroupBase):
         return [a, b]
     
     
-    def get_channel_attention(self, q, k, v, head_dim, temperature, attn_drop=None):
+    def get_channel_attention(self, q, k, v, head_dim, temperature=1.0, attn_drop=None):
         attn_1 = q[:, :, :, :head_dim] @ k[:, :, :, :head_dim].transpose(-2, -1)
         attn_2 = q[:, :, :, head_dim:] @ k[:, :, :, head_dim:].transpose(-2, -1)
         

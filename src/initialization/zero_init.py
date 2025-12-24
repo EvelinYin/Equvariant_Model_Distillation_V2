@@ -160,13 +160,15 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
     
     copied_state_dict = student_state_dict.copy()
     
+
     for name, param in student_model.named_parameters():
         # breakpoint()
-        
+        if "add_pos_embed" in name:
+            continue
         # This is only for the normal cls token
-        if '.cls_token' in name:
-            C = param.shape[0]
-            copied_state_dict[name] = teacher_state_dict['model.model.vit.embeddings.cls_token'][:C//scale_factor].clone()
+        if 'cls_token' in name:
+            C = param.shape[-1]
+            copied_state_dict[name] = teacher_state_dict['model.model.vit.embeddings.cls_token'][:,:,:C].clone()
         
         elif 'non_equ_pos_embed' in name:
             breakpoint()
@@ -198,7 +200,7 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
                 C = param.shape[0]
                 # breakpoint()
                 # copied_state_dict[name][0::2, 0::2, :, :] = teacher_state_dict[teacher_name][:C//scale_factor].clone()
-                copied_state_dict[name][:, :, 0::2, :, :] = teacher_state_dict[teacher_name][:C//scale_factor].unsqueeze(2).clone()
+                copied_state_dict[name][:, :, 0::2, :, :] = teacher_state_dict[teacher_name][:C].unsqueeze(2).clone()
                 
             elif "bias" in name:
                 teacher_name = name.replace("patch_embed.grouplayer", "model.model.vit.embeddings.patch_embeddings.projection")
@@ -224,7 +226,6 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
             C_s = student_state_dict[name].shape[0]
             
             try:
-            
                 C_t = teacher_state_dict[teacher_name].shape[0]
                 copied_state_dict[name] = teacher_state_dict[teacher_name][:C_t//scale_factor].clone()
             except:
@@ -330,6 +331,9 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
                         teacher_name = teacher_name.replace("mlp.fc2.learnable_bias", "output.dense.bias")
                         C = param.shape[0]
                         copied_state_dict[name] = teacher_state_dict[teacher_name][:C].clone()
+                else:
+                    print("8")
+                    breakpoint()
                 
             else:
                 print("7")
@@ -341,6 +345,12 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
                 copied_state_dict[name] = teacher_state_dict[teacher_name][:, :C].clone()
             elif param.ndim ==1:
                 copied_state_dict[name] = teacher_state_dict[teacher_name].clone()
+            else:
+                print("9")
+                breakpoint()
+        else:
+            print("10")
+            breakpoint()
 
 
     return copied_state_dict
@@ -568,8 +578,8 @@ if __name__ == "__main__":
     # teacher_model = get_pretrained_teacher_model(model_name="google/vit-base-patch16-224-in21k", num_classes=100)
     
     teacher_model = PretrainedViT(model_name="google/vit-base-patch16-224", num_classes=100)
-    # embed_dim = 384
-    embed_dim = 768
+    embed_dim = 384
+    # embed_dim = 768
     scale_factor = 768 // embed_dim
     
     student_model = EquViT(  
@@ -590,7 +600,7 @@ if __name__ == "__main__":
     teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/teacher/google/vit-base-patch16-224/best_fixed.ckpt"
     cls_feat_path = "./outputs/CIFAR100/cls_features/cls_features.pt"
 
-    cls_feat = torch.load(cls_feat_path)
+    # cls_feat = torch.load(cls_feat_path)
 
     # breakpoint()
     # student_model.linear_pooling_layer.ls_init(cls_feat)
@@ -605,7 +615,9 @@ if __name__ == "__main__":
     student_model_ckpt = {}
     student_model_ckpt['state_dict'] = copied_state_ckpt
     # output_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init.ckpt"
-    output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/double_channel/zero_init_v2.ckpt"
+    # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/double_channel/zero_init_v2.ckpt"
+    output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init_v2.ckpt"
+    
     
     # output_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/student/initialization/nonequ_pos_embed_real_zero_init.ckpt"
     breakpoint()

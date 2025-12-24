@@ -41,7 +41,7 @@ class InterpolativeLiftingKernel(LiftingKernelBase):
         ## AND ENDS HERE ##
         
 
-        # Sample the transformed kernels.
+        # # Sample the transformed kernels.
         # transformed_weight = []
         # for spatial_grid_idx in range(self.group.elements().numel()):
         #     transformed_weight.append(

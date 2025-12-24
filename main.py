@@ -2,7 +2,7 @@ import argparse
 from omegaconf import OmegaConf
 from src.config import Config, get_default_config
 from src.train_lightning import train
-
+from src.test_main import test
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -41,6 +41,8 @@ def main():
     print(cfg)
     # 🔽 pass cfg into training code
     train(cfg)
+    # test(cfg)
+    
 
 
 if __name__ == "__main__":

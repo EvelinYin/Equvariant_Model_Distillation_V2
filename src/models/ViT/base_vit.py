@@ -22,7 +22,7 @@ class TransformerBlock(nn.Module):
         # if self.norm1.norm.weight.dtype != x.dtype:
         #     self.norm1 = self.norm1.to(x.dtype)
         #     self.norm2 = self.norm2.to(x.dtype)
-
+        # breakpoint()
         x = self.dropout(x)
         x = x + self.attn(self.norm1(x))   
         x = x + self.mlp(self.norm2(x))

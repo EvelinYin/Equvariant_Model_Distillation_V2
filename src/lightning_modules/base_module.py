@@ -7,6 +7,9 @@ from typing import Any, Dict, List, Optional, Union
 from torch.optim.lr_scheduler import (CosineAnnealingLR, ExponentialLR, StepLR, LinearLR, SequentialLR)
 from src.config import TeacherTrainConfig, StudentTrainConfig
 
+from lightning.pytorch.utilities import grad_norm
+
+
 class BaseLightningModule(pl.LightningModule):
     """
     Base LightningModule that handles common logic for:
@@ -169,3 +172,12 @@ class BaseLightningModule(pl.LightningModule):
             return [optimizer], [scheduler_config]
         return optimizer
     
+    
+        
+    def on_after_backward(self):
+        # "2" refers to the L2 norm (Euclidean)
+        # This utility calculates the norms for you
+        norms = grad_norm(self, norm_type=2)
+        
+        # Log the dictionary of norms
+        self.log_dict(norms)

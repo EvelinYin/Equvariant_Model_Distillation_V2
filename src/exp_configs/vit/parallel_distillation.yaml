@@ -23,12 +23,14 @@ student_model:
     stride: 1
     in_channels: 3
     embed_dim: 768
+    # embed_dim: 384
     depth: 12
     n_heads: 12
     mlp_ratio: 4
     pos_embed: SymmetricPosEmbed
     attention_per_channel: true
     group_attn_channel_pooling: false
+    # group_attn_channel_pooling: true
 
 
 
@@ -55,7 +57,7 @@ student_train:
   temperature: 3.0
   alpha: 0.7
 
-  student_ckpt_path: null
+  student_ckpt_path: "./outputs/CIFAR100/pretrained_ViT/student/initialization/double_channel/zero_init_v2.ckpt"
   train_equ_w_gt: false
 
   scheduler_type: cosine
@@ -87,6 +89,8 @@ parallel_layer_distillation:
                         blocks.9, blocks.11,
                         head]
   learnable_projection: false
+  # learnable_projection: true
+
 
 
 # =========================

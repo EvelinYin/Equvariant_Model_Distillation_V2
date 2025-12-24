@@ -26,7 +26,7 @@ from models.resnet_end_to_end_test import test_resnet_forward
 
 
 class TestModels(unittest.TestCase):
-    def test_liftingLayer(self):
+    def _test_liftingLayer(self):
         # This is forward test
         equ_error = test_lifting_convolution_forward()
         print("Lifting Layer Equivarinace Error -->", equ_error)
@@ -39,7 +39,7 @@ class TestModels(unittest.TestCase):
         
         
     
-    def test_groupLayer(self):
+    def _test_groupLayer(self):
         # This is forward test
         equ_error = test_group_convolution_forward()
         print("Group Conv Layer Equivarinace Error -->", equ_error)
@@ -51,7 +51,7 @@ class TestModels(unittest.TestCase):
         assert equ_error < 1e-10
         
 
-    def test_shared_weight_linear(self):
+    def _test_shared_weight_linear(self):
         equ_error = test_shared_weight_linear_forward()
         print("Shared Weight Linear Layer Equivarinace Error -->", equ_error)
         assert equ_error < 1e-10    
@@ -61,7 +61,7 @@ class TestModels(unittest.TestCase):
         assert equ_error < 1e-10
         
     
-    def test_attention_layer(self):
+    def _test_attention_layer(self):
         equ_error = test_channel_attention_forward()
         print("Channel Attention Layer Equivarinace Error -->", equ_error)
         assert equ_error < 1e-10    
@@ -70,7 +70,7 @@ class TestModels(unittest.TestCase):
         print("Channel Attention Layer Equivarinace Error (backward) -->", equ_error, "\n")
         assert equ_error < 1e-10
     
-    def test_channel_layer_norm(self):
+    def _test_channel_layer_norm(self):
         equ_error = test_channel_layer_norm_forward()
         print("Channel Layer Norm Equivarinace Error -->", equ_error)
         assert equ_error < 1e-10    

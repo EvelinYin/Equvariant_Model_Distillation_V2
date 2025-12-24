@@ -3,14 +3,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
-from torch.optim.lr_scheduler import CosineAnnealingLR, StepLR, ExponentialLR, LinearLR, SequentialLR
-from torchmetrics import Accuracy
 from typing import Any
 from .base_module import BaseLightningModule
 
 from src.config import StudentModelConfig, StudentTrainConfig, ParallelLayerDistillationConfig
 import os
-from lightning.pytorch.utilities import grad_norm
 from dataclasses import dataclass, asdict
 from src.losses import compute_relative_error, distillation_loss
 from src.utils import get_BNC_features
@@ -75,8 +72,10 @@ class StudentParallelLayerLightningModule(BaseLightningModule):
             #     teacher_features = teacher_features[0]
                 if isinstance(teacher_features, tuple) and teacher_features[1] is None:
                     teacher_features = teacher_features[0]
+                
             
-                if isinstance(student_features, list) or isinstance(student_features, tuple):
+                if isinstance(student_features, list) or isinstance(student_features, tuple) \
+                    and not self.model.group_attn_channel_pooling:
                     breakpoint()
                     for s, t in zip(student_features, teacher_features):
                         _,_,C_s = s.shape
@@ -96,7 +95,7 @@ class StudentParallelLayerLightningModule(BaseLightningModule):
                         _,_,C_s = reshaped_student_features.shape
                         _,_,C_t = reshaped_teacher_features.shape
                         
-                        breakpoint()
+
                         self.output_proj.append(nn.Linear(int(C_s/self.model.group.order), C_t))
                             # self.output_proj.append(nn.Linear(int(C_s/2), C_t))
                     except:
@@ -403,6 +402,8 @@ class StudentParallelLayerLightningModule(BaseLightningModule):
     def test_step(self, batch, batch_idx):
         """Test step"""
         x, y = batch
+        
+
 
 
         # x = torch.flip(x, dims=[-1])
@@ -432,14 +433,7 @@ class StudentParallelLayerLightningModule(BaseLightningModule):
         
         return loss
     
-    
-    def on_after_backward(self):
-        # "2" refers to the L2 norm (Euclidean)
-        # This utility calculates the norms for you
-        norms = grad_norm(self, norm_type=2)
-        
-        # Log the dictionary of norms
-        self.log_dict(norms)
+
     
     
     def on_load_checkpoint(self, checkpoint):

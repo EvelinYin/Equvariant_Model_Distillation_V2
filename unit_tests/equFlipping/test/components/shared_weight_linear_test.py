@@ -57,6 +57,7 @@ def test_shared_weight_linear_backward():
     layer = SharedWeightLinear( in_channel=in_channels,
                                 out_channel=out_channels,
                                 group=flipping_group,
+                                bias = True
                                 )
 
 
@@ -65,12 +66,12 @@ def test_shared_weight_linear_backward():
 
     
     
-    optimizer = torch.optim.Adam(layer.parameters(), lr=0.01)
+    optimizer = torch.optim.Adam(layer.parameters(), lr=100000)
     
     x = torch.randn(batchsize, N, 2, in_channels).to(torch.float64)
     target = torch.randn(batchsize, N, 2*out_channels).to(torch.float64)
     
-    for _ in range(100):
+    for _ in range(1000):
         optimizer.zero_grad()
         output = layer(x)
         loss = torch.nn.functional.mse_loss(output, target)

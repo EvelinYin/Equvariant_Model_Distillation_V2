@@ -44,10 +44,10 @@ def train_student(config: Config, data_module: pl.LightningDataModule,
                   student_model: nn.Module, teacher_model: nn.Module = None,
                   ):
     """Train student model with knowledge distillation using Lightning Trainer"""
-    
+
     # Load pre-trained student checkpoint if provided
     student_ckpt_path = config.student_train.student_ckpt_path
-    if student_ckpt_path is not None:
+    if student_ckpt_path is not None and student_ckpt_path != '':
         student_model = load_model_checkpoint(student_model, student_ckpt_path)
     
     
@@ -66,7 +66,8 @@ def train_student(config: Config, data_module: pl.LightningDataModule,
     config.logging.outputs_dir = f'./outputs/{config.data.dataset_name}/' \
                                     + 'student/' \
                                     + f'{config.student_model.model_structure}/' \
-                                    + f'{config.student_train.strategy}'
+                                    + f'{config.student_train.strategy}' \
+                                    + f'{config.logging.wandb_name}'
     
     # Initialize wandb
     wandb.login()
@@ -120,29 +121,34 @@ def train_student(config: Config, data_module: pl.LightningDataModule,
         gradient_clip_algorithm="norm" 
     )
     
+    if config.test_only:
+        print("Test only mode enabled. Skipping training.")
+        trainer.test(student_module, datamodule=data_module, ckpt_path=student_ckpt_path)
     
-    
-    # Train
-    if student_ckpt_path is not None and 'pytorch-lightning_version' in torch.load(student_ckpt_path, map_location='cpu'):
-        print("Resuming Trainer state (Optimizer, Scheduler, Epoch)...")
-        # Passing ckpt_path here restores the FULL training state
-        trainer.fit(student_module, datamodule=data_module, ckpt_path=student_ckpt_path)
     else:
-        trainer.fit(student_module, datamodule=data_module)
     
-    # Test
-    # 1. Get the path to the best checkpoint
-    best_path = trainer.checkpoint_callback.best_model_path
-    print(f"Loading best checkpoint from: {best_path}")
-    
-    
-    # 2. Load the state dict manually
-    checkpoint = torch.load(best_path)
-    student_module.load_state_dict(checkpoint['state_dict'])
+        # Train
+        if (student_ckpt_path is not None and student_ckpt_path != '' ) \
+            and 'pytorch-lightning_version' in torch.load(student_ckpt_path, map_location='cpu'):
+            print("Resuming Trainer state (Optimizer, Scheduler, Epoch)...")
+            # Passing ckpt_path here restores the FULL training state
+            trainer.fit(student_module, datamodule=data_module, ckpt_path=student_ckpt_path)
+        else:
+            trainer.fit(student_module, datamodule=data_module)
+        
+        # Test
+        # 1. Get the path to the best checkpoint
+        best_path = trainer.checkpoint_callback.best_model_path
+        print(f"Loading best checkpoint from: {best_path}")
+        
+        
+        # 2. Load the state dict manually
+        checkpoint = torch.load(best_path)
+        student_module.load_state_dict(checkpoint['state_dict'])
 
-    # 3. Run test, but set ckpt_path=None so Trainer doesn't try to reload it strictly
-    trainer.test(student_module, datamodule=data_module, ckpt_path=None)
-    
+        # 3. Run test, but set ckpt_path=None so Trainer doesn't try to reload it strictly
+        trainer.test(student_module, datamodule=data_module, ckpt_path=None)
+        
     # Close wandb run
     wandb_logger_student.experiment.finish()
     

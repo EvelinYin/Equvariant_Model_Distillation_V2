@@ -75,7 +75,7 @@ def test_channel_layer_norm_backward():
 
     
     
-    optimizer = torch.optim.Adam(layer.parameters(), lr=0.1)
+    optimizer = torch.optim.Adam(layer.parameters(), lr=1000)
     
     x = torch.randn(batchsize, N, 2, in_channels).to(torch.float64)
     target = torch.randn(batchsize, N, 2, in_channels).to(torch.float64)

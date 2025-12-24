@@ -55,15 +55,17 @@ def test_lifting_convolution_backward():
     layer = layer.to(torch.float64)
     
     
-    optimizer = torch.optim.Adam(layer.parameters(), lr=0.01)
+    optimizer = torch.optim.Adam(layer.parameters(), lr=100000)
     
     x = torch.randn(batchsize, in_channels, S, S).to(torch.float64)
-    target = torch.randn(batchsize, 2, out_channels, S - kernel_size + 1, S - kernel_size + 1).to(torch.float64)
+    target = torch.randn(batchsize, 2, out_channels, S - kernel_size + 1, S - kernel_size + 1).to(torch.float64) * 1000000
     
-    for _ in range(100):
+    for i in range(100):
         optimizer.zero_grad()
         output = layer(x)
         loss = torch.nn.functional.mse_loss(output, target)
+        # loss = -torch.norm(output)
+        print(f"Step {i}, norm: {torch.norm(output)}")
         loss.backward()
         optimizer.step()
     
@@ -77,4 +79,4 @@ def test_lifting_convolution_backward():
 
     f_out_x = gflip(out_x)
     
-    return torch.norm(f_out_x-out_fx).item()
+    return (torch.norm((f_out_x-out_fx))/torch.norm(out_fx)).item()

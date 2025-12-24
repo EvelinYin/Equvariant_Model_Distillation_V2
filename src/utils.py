@@ -41,8 +41,10 @@ def load_model_checkpoint(model: torch.nn.Module, ckpt_path: str):
     """Load model weights from checkpoint"""
     try:
         checkpoint = torch.load(ckpt_path, map_location='cpu')
-        model.load_state_dict(checkpoint['state_dict'])
-        print(f"Loaded model weights from {ckpt_path}")
+        missing, unexpected = model.load_state_dict(checkpoint['state_dict'], strict=False)
+        if unexpected:
+            print(f"Ignored the following keys: {unexpected}")
+            print(f"Loaded model weights from {ckpt_path}")
         return model
     except Exception as e:
         breakpoint()

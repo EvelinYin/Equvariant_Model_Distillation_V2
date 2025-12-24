@@ -158,6 +158,7 @@ class Config:
     device: str = "cuda"
     seed: int = 42
     precision: str = "16-mixed"  # or "16-mixed" for mixed precision
+    test_only: bool = False  # If True, only run testing
     
     def __post_init__(self):
         """Validate configuration after initialization"""

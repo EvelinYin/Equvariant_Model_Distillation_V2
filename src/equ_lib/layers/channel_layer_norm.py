@@ -37,7 +37,7 @@ class ChannelLayerNorm(nn.Module):
             B, N, C = x.shape
             
             x = x.reshape(B, N, self.group.order, -1)
-            
+
             normed_x = []
             for i in range(self.group.order):
                 normed_x.append(self.norm(x[:,:, i, :]))

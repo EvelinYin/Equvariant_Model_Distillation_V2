@@ -59,6 +59,8 @@ class SharedWeightLinear(nn.Module):
         # Manually construct bias matrix
         if self.bias:
             stacked_bias = self.learnable_bias.repeat(self.n_group_elements).to(device=device, dtype=dtype)
+            # stacked_bias = torch.cat([self.learnable_bias, torch.zeros_like(self.learnable_bias)], dim=0).to(x.dtype)
+            
         else:
             stacked_bias = None
         
