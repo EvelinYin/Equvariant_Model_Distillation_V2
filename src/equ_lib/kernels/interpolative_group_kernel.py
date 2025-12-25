@@ -57,8 +57,8 @@ class InterpolativeGroupKernel(GroupKernelBase):
         transformed_weight = []
         
         for g in range(self.group.elements().numel()):
-            f_weight = self.group.trans_weight(weight, g)
-            f_weight = self.group.roll_weight(f_weight, g)
+            f_weight = self.group.trans(weight, g)
+            f_weight = self.group.roll(f_weight, g)
             transformed_weight.append(f_weight)
         
         transformed_weight = torch.stack(transformed_weight)

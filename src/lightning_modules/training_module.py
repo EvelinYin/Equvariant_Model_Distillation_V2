@@ -2,13 +2,16 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Union
+from typing import Dict, Union
+
+from torchmetrics import Accuracy
 from .base_module import BaseLightningModule
-from config import StudentModelConfig, StudentTrainConfig, TeacherTrainConfig
+
+from src.config import StudentModelConfig, StudentTrainConfig, TeacherTrainConfig
 from lightning.pytorch.utilities import grad_norm
 
 from src.losses import distillation_loss
-
+from src.equ_lib.groups import get_group
 
 class LightningTrainingModule(BaseLightningModule):
     """Lightning Module for Student Model training with knowledge distillation"""
@@ -17,7 +20,7 @@ class LightningTrainingModule(BaseLightningModule):
         self,
         model: nn.Module,
         train_config:  Union[TeacherTrainConfig, StudentTrainConfig],
-        teacher_model: nn.Module,
+        teacher_model: nn.Module = None,
         num_classes: int = 10
     ):
         """
@@ -26,7 +29,7 @@ class LightningTrainingModule(BaseLightningModule):
             train_config: Training configuration including temperature, alpha
             teacher_model: Pre-trained teacher model
         """
-        super().__init__()
+        super().__init__(model=model, train_config=train_config, num_classes=num_classes)
         
 
         if teacher_model is None:
@@ -41,43 +44,27 @@ class LightningTrainingModule(BaseLightningModule):
         
         # # Save hyperparameters for logging
         # self.save_hyperparameters(ignore=["teacher"])
+        
+        # group
+        self.group = get_group(self.train_config.group)
+        self.test_accuracy_list = []
+        
+
+        self.test_accuracy_list = torch.nn.ModuleDict({
+            str(i): Accuracy(task="multiclass", num_classes=num_classes)
+            for i in range(self.group.elements().numel())
+        })
     
-    def training_step(self,batch, batch_idx):
-        """Training step with knowledge distillation"""
-        x, y = batch
+    
+    def compute_and_log_loss(self, prediction: torch.Tensor, target: torch.Tensor, y: torch.Tensor, distill=False) -> torch.Tensor:
         
-
-
-        # Get teacher predictions (no gradient)
-        if self.teacher is not None:
-            with torch.no_grad():
-                teacher_logits = self.teacher(x)
+        if distill:
+            loss = self.distillation_loss(prediction, target, temperature=self.train_config.temperature)
         else:
-            teacher_logits = None
-
-        
-        # Get student predictions
-        student_logits = self.student(x)
-        
-
-        
-        # Compute distillation loss
-        # loss, hard_loss, soft_loss = self.distillation_loss(student_logits, teacher_logits, y)
-        # loss = self.distillation_loss(student_logits, teacher_logits, y)
-        
-        if self.teacher is not None:
-            teacher_probs = F.softmax(teacher_logits, dim=1)
-            teacher_preds = torch.argmax(teacher_probs, dim=1)
-            loss = self.cross_entropy_loss(student_logits, teacher_preds)
-        else:
-            loss = self.cross_entropy_loss(student_logits, y)
-        
-        
+            loss = self.cross_entropy_loss(prediction, target)
         
         # Log losses
         self.log("train/total_loss", loss, on_epoch=True, on_step=False)
-        # self.log("train/hard_loss", hard_loss, on_epoch=True, on_step=False)
-        # self.log("train/soft_loss", soft_loss, on_epoch=True, on_step=False)
         
         # Log learning rate
         for param_group in self.optimizers().param_groups:
@@ -85,44 +72,55 @@ class LightningTrainingModule(BaseLightningModule):
             break
         
         # Update and log accuracy
-        self.train_accuracy(student_logits, y)
+        self.train_accuracy(prediction, y)
         self.log("train/accuracy", self.train_accuracy, on_epoch=True, on_step=False)
         
         return loss
+    
+    
+    def training_step(self,batch, batch_idx):
+        """Training step with knowledge distillation"""
+        x, y = batch
+        
+        # Get student predictions
+        logits = self.model(x)
+
+        # Get teacher predictions (no gradient)
+        if self.teacher is not None:
+            with torch.no_grad():
+                teacher_logits = self.teacher(x)
+            loss = self.compute_and_log_loss(logits, teacher_logits, y, distill=True)
+        else:
+            loss = self.compute_and_log_loss(logits, y, y)
+        
+        
+        return loss
+        
+
+        
     
     def validation_step(self, batch, batch_idx):
         """Validation step"""
         x, y = batch
         
-        # Get teacher predictions (no gradient)
         with torch.no_grad():
+            # Get student predictions
+            logits = self.model(x)
+
+            # Get teacher predictions
             if self.teacher is not None:
-                teacher_logits = self.teacher(x)
+                with torch.no_grad():
+                    teacher_logits = self.teacher(x)
+                loss = self.distillation_loss(logits, teacher_logits, temperature=self.train_config.temperature)
             else:
-                teacher_logits = None
-            student_logits = self.student(x)
-        
-        # breakpoint()
-        
-        # Compute loss
-        # loss, hard_loss, soft_loss = self.distillation_loss(student_logits, teacher_logits, y)
-        # loss = self.distillation_loss(student_logits, teacher_logits, y)
-        
-        if self.teacher is not None:
-            teacher_probs = F.softmax(teacher_logits, dim=1)
-            teacher_preds = torch.argmax(teacher_probs, dim=1)
-            loss = self.cross_entropy_loss(student_logits, teacher_preds)
-        else:
-            loss = self.cross_entropy_loss(student_logits, y)
+                loss = self.cross_entropy_loss(logits, y)
         
         
         # Log losses
         self.log("val/total_loss", loss, on_epoch=True, on_step=False)
-        # self.log("val/hard_loss", hard_loss, on_epoch=True, on_step=False)
-        # self.log("val/soft_loss", soft_loss, on_epoch=True, on_step=False)
         
         # Update and log accuracy
-        self.val_accuracy(student_logits, y)
+        self.val_accuracy(logits, y)
         self.log("val/accuracy", self.val_accuracy, on_epoch=True, on_step=False)
         
         return loss
@@ -131,30 +129,44 @@ class LightningTrainingModule(BaseLightningModule):
         """Test step"""
         x, y = batch
         
-        # Get predictions
-        with torch.no_grad():
-            if self.teacher is not None:
-                teacher_logits = self.teacher(x)
-                student_logits = self.student(x)
-                loss = self.distillation_loss(student_logits, teacher_logits, y)
-                
-            else:
-                student_logits = self.student(x)
-                loss = self.cross_entropy_loss(student_logits, y)
         
-        # Compute loss
-        # loss, hard_loss, soft_loss = self.distillation_loss(student_logits, teacher_logits, y)
         
-        # Log losses
-        self.log("test/total_loss", loss, on_epoch=True, on_step=False)
-        # self.log("test/hard_loss", hard_loss, on_epoch=True, on_step=False)
-        # self.log("test/soft_loss", soft_loss, on_epoch=True, on_step=False)
+        all_losses = []
+        all_logits = []
+        for g in range(self.group.elements().numel()):
+            x = self.group.trans(x, g)
+            
+            # Get predictions
+            with torch.no_grad():
+                if self.teacher is not None:
+                    teacher_logits = self.teacher(x)
+                    student_logits = self.model(x)
+                    loss = self.distillation_loss(student_logits, teacher_logits, temperature=self.train_config.temperature)
+                    
+                else:
+                    student_logits = self.model(x)
+                    loss = self.cross_entropy_loss(student_logits, y)
+            
+            all_logits.append(student_logits)
+            all_losses.append(loss)
+            # Compute loss
+            # loss, hard_loss, soft_loss = self.distillation_loss(student_logits, teacher_logits, y)
+            
+            # Log losses
+            self.log(f"test/total_loss_group{g}", loss, on_epoch=True, on_step=False)
+            # self.log("test/hard_loss", hard_loss, on_epoch=True, on_step=False)
+            # self.log("test/soft_loss", soft_loss, on_epoch=True, on_step=False)
+            
+            # Update and log accuracy
+            self.test_accuracy_list[str(g)](student_logits, y)
+            self.log(f"test/accuracy_group{g}", self.test_accuracy_list[str(g)], on_epoch=True, on_step=False)
         
-        # Update and log accuracy
-        self.test_accuracy(student_logits, y)
-        self.log("test/accuracy", self.test_accuracy, on_epoch=True, on_step=False)
         
-        return loss
+
+        logits_diff = all_logits[0] - all_logits[1]
+        self.log(f"test/logits_diff_g0_g1", torch.norm(logits_diff), on_epoch=True, on_step=False)
+        
+        return torch.stack(all_losses).mean(dim=0)
     
     
     def on_after_backward(self):

@@ -82,7 +82,6 @@ class StudentModelConfig:
     """Model architecture configuration"""
     # TODO: add resnet50 option
     model_structure: str = "equ_vit"  # "equ_vit" or "equ_resnet50"
-    group: str = "FlipGroup"  # "FlipGroup" or "RotationGroup"
     vit_config: ViTConfig = field(default_factory=ViTConfig)
     cnn_config: CNNConfig = field(default_factory=CNNConfig)
     
@@ -91,8 +90,13 @@ class StudentModelConfig:
 @dataclass
 class TeacherTrainConfig:
     """Teacher model training configuration"""
+    strategy: str = 'non_equ_train_on_GT' # 'non_equ_train_on_GT'?
     epochs: int = 10
     learning_rate: float = 3e-4
+    
+    # This is for testing steps
+    group: str = "FlipGroup"  # "FlipGroup" or "RotationGroup"
+    
     
     # Learning rate scheduler
     scheduler_type: str = "cosine"  # "cosine", "exponential", "linear", "step", or "none"
@@ -100,12 +104,13 @@ class TeacherTrainConfig:
     scheduler_step_size: int = 5  # Step size for step scheduler
     scheduler_gamma: float = 0.1  # Decay factor for exponential/step schedulers
     teacher_ckpt_path: Optional[str] = None  # Path to pre-trained teacher checkpoint
-    
+    # flip_test_images: bool = False  # If True, test on flipped images
     
 @dataclass
 class StudentTrainConfig:
     """Student model training configuration"""
     strategy: str = 'parallel_distillation' # 'parallel_distillation' or ?
+    group: str = "FlipGroup"  # "FlipGroup" or "RotationGroup"
     epochs: int = 15
     learning_rate: float = 5e-4
     temperature: float = 3.0
@@ -113,9 +118,7 @@ class StudentTrainConfig:
     # weight_decay: float = 5e-2
     weight_decay: float = 1e-1
     student_ckpt_path: Optional[str] = None  # Path to pre-trained student checkpoint
-    
-    train_equ_w_gt: bool = False  # Whether to train equvariant layers with ground truth labels
-    
+    # flip_test_images: bool = False  # If True, test on flipped images
     
     # Learning rate scheduler
     scheduler_type: str = "cosine"  # "cosine", "exponential", "linear", "step", or "none"
@@ -158,7 +161,9 @@ class Config:
     device: str = "cuda"
     seed: int = 42
     precision: str = "16-mixed"  # or "16-mixed" for mixed precision
+    train_teacher: bool = False  # If True, train the teacher model
     test_only: bool = False  # If True, only run testing
+    
     
     def __post_init__(self):
         """Validate configuration after initialization"""

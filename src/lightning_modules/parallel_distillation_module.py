@@ -59,7 +59,10 @@ class StudentParallelLayerLightningModule(BaseLightningModule):
             self.output_proj = nn.ModuleList()
             
             for layer_t, layer_s in zip(self.teacher_layer_names, self.student_layer_names):
-                x, y = next(iter(self.trainer.datamodule.train_dataloader()))
+                if stage == 'fit' or stage is None:
+                    x, y = next(iter(self.trainer.datamodule.train_dataloader()))
+                elif stage == 'test':
+                    x, y = next(iter(self.trainer.datamodule.test_dataloader()))
                 
                 with torch.no_grad():
                     teacher_features = self._get_layer_features(self.teacher, x, layer_t, False)
@@ -277,10 +280,7 @@ class StudentParallelLayerLightningModule(BaseLightningModule):
                         layer_mse, relative_error = self._get_multi_mse_loss(student_features, teacher_features, layer_s, idx)
                         layer_losses.extend(layer_mse)
                         relative_errors.append(sum(relative_error) / len(relative_error))
-                # except Exception as e:
-                #     print("bugg??")
-                #     print(e)
-                #     breakpoint()     
+ 
         # breakpoint()
         self.log(f"val/mse", sum(layer_losses) / len(layer_losses), on_epoch=True, on_step=False)
         
@@ -406,7 +406,8 @@ class StudentParallelLayerLightningModule(BaseLightningModule):
 
 
 
-        # x = torch.flip(x, dims=[-1])
+        if self.train_config.flip_test_images:
+            x = torch.flip(x, dims=[-1])
         
         # Get predictions
         with torch.no_grad():
@@ -441,7 +442,6 @@ class StudentParallelLayerLightningModule(BaseLightningModule):
         state_dict = checkpoint["state_dict"]
         
         # create a list of keys to remove (e.g., the classifier weights)
-        # Note: In PL, keys usually have the same name as your attributes
         keys_to_remove = [k for k in state_dict.keys() if "output_proj" in k]
         
         for k in keys_to_remove:

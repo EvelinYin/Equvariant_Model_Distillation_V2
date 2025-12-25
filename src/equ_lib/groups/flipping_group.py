@@ -101,14 +101,14 @@ class FlipGroup(GroupBase):
         return x.reshape(B, N, C)
     
     
-    def trans_weight(self, x, g):
+    def trans(self, x, g):
         if g == 0:
             return x
         elif g == 1:
             return torch.flip(x, dims=[-1])
     
     
-    def roll_weight(self, x, g):
+    def roll(self, x, g):
         if g == 0:
             return x
         elif g == 1:

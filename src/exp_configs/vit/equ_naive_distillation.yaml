@@ -15,7 +15,6 @@ data:
 # =========================
 student_model:
   model_structure: equ_vit
-  group: FlipGroup   # FlipGroup or RotationGroup
 
   vit_config:
     img_size: 224
@@ -30,7 +29,6 @@ student_model:
     pos_embed: SymmetricPosEmbed
     attention_per_channel: true
     group_attn_channel_pooling: false
-    # group_attn_channel_pooling: true
 
 
 
@@ -51,13 +49,13 @@ teacher_model:
 # Student training configuration
 # =========================
 student_train:
-  strategy: parallel_distillation
+  strategy: equ_naive_distillation
+  group: FlipGroup   # FlipGroup or RotationGroup
   epochs: 150
   learning_rate: 2e-5
   temperature: 3.0
-  alpha: 0.7
 
-  student_ckpt_path: "./outputs/CIFAR100/pretrained_ViT/student/initialization/double_channel/zero_init_v2.ckpt"
+  student_ckpt_path: ""
   # train_equ_w_gt: false
 
   scheduler_type: cosine
@@ -101,7 +99,7 @@ logging:
   entity: null
   log_frequency: 50
   outputs_dir: ./outputs
-  wandb_name: pretrained_ViT_parallel_distillation
+  wandb_name: equ_naive_distillation
   wandb_mode: online
 
 

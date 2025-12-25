@@ -51,7 +51,7 @@ class InterpolativeLiftingKernel(LiftingKernelBase):
         
         transformed_weight = []
         for g in range(self.group.elements().numel()):
-            f_weight = self.group.trans_weight(weight, g)
+            f_weight = self.group.trans(weight, g)
             transformed_weight.append(f_weight)
         transformed_weight = torch.stack(transformed_weight)
 
