@@ -5,8 +5,9 @@ import pytorch_lightning as pl
 from torchmetrics import Accuracy
 from typing import Any, Dict, List, Optional, Union
 from torch.optim.lr_scheduler import (CosineAnnealingLR, ExponentialLR, StepLR, LinearLR, SequentialLR)
-from src.config import TeacherTrainConfig, StudentTrainConfig
 
+from src.config import TeacherTrainConfig, StudentTrainConfig
+from src.equ_lib.groups import get_group
 from lightning.pytorch.utilities import grad_norm
 
 
@@ -36,7 +37,18 @@ class BaseLightningModule(pl.LightningModule):
         # Metrics
         self.train_accuracy = Accuracy(task="multiclass", num_classes=num_classes)
         self.val_accuracy = Accuracy(task="multiclass", num_classes=num_classes)
-        self.test_accuracy = Accuracy(task="multiclass", num_classes=num_classes)
+        # self.test_accuracy = Accuracy(task="multiclass", num_classes=num_classes)
+        
+        # group
+        self.group = get_group(self.train_config.group)
+        self.test_accuracy_list = []
+        
+
+        self.test_accuracy_list = torch.nn.ModuleDict({
+            str(i): Accuracy(task="multiclass", num_classes=num_classes)
+            for i in range(self.group.elements().numel())
+        })
+    
         
         self.save_hyperparameters()
 
@@ -75,11 +87,43 @@ class BaseLightningModule(pl.LightningModule):
 
     # --- Common Test Loop ---
     def test_step(self, batch: Any, batch_idx: int):
+        """Test step"""
+        # pass
         x, y = batch
-        output = self.forward(x)
-        loss = self.compute_and_log_loss(output, y)
+        
+        
+        
+        all_logits = []
+        for g in range(self.group.elements().numel()):
+            x = self.group.trans(x, g)
+            
+            # Get predictions
+            with torch.no_grad():
+                student_logits = self.model(x)
+            
+            # this is for group attn pooling
+            if isinstance(student_logits, tuple):
+                student_logits = student_logits[0]
+            
+            all_logits.append(student_logits)
+            
+            # Log losses
+            # self.log(f"test/total_loss_group{g}", loss, on_epoch=True, on_step=False)
+            # self.log("test/hard_loss", hard_loss, on_epoch=True, on_step=False)
+            # self.log("test/soft_loss", soft_loss, on_epoch=True, on_step=False)
+            
 
-        return loss
+            
+            # Update and log accuracy
+            self.test_accuracy_list[str(g)](student_logits, y)
+            self.log(f"test/accuracy_group{g}", self.test_accuracy_list[str(g)], on_epoch=True, on_step=False)
+        
+        
+
+        logits_diff = all_logits[0] - all_logits[1]
+        self.log(f"test/logits_diff_g0_g1", torch.norm(logits_diff), on_epoch=True, on_step=False)
+        
+
 
     # --- Optimizer Configuration ---
     def configure_optimizers(self):

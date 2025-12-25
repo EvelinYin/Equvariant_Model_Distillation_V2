@@ -7,7 +7,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 import wandb
 import torch.nn as nn
 
-from src.utils import setup_training_directories, load_model_checkpoint
+from src.utils import setup_training_directories, load_model_checkpoint, clean_state_dict
 from src.config import Config, get_default_config
 from src.models import get_model
 from src.data_modules import get_datamodule
@@ -222,7 +222,9 @@ def train_student(config: Config, data_module: pl.LightningDataModule,
     
     if config.test_only:
         print("Test only mode enabled. Skipping training.")
-        trainer.test(student_module, datamodule=data_module, ckpt_path=student_ckpt_path)
+        trainer.test(student_module, datamodule=data_module, ckpt_path=None)
+        # trainer.test(student_module, datamodule=data_module, ckpt_path=student_ckpt_path)
+        
     
     else:
     

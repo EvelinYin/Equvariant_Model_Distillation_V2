@@ -45,16 +45,7 @@ class LightningTrainingModule(BaseLightningModule):
         # # Save hyperparameters for logging
         # self.save_hyperparameters(ignore=["teacher"])
         
-        # group
-        self.group = get_group(self.train_config.group)
-        self.test_accuracy_list = []
-        
-
-        self.test_accuracy_list = torch.nn.ModuleDict({
-            str(i): Accuracy(task="multiclass", num_classes=num_classes)
-            for i in range(self.group.elements().numel())
-        })
-    
+       
     
     def compute_and_log_loss(self, prediction: torch.Tensor, target: torch.Tensor, y: torch.Tensor, distill=False) -> torch.Tensor:
         
@@ -125,48 +116,48 @@ class LightningTrainingModule(BaseLightningModule):
         
         return loss
     
-    def test_step(self, batch, batch_idx):
-        """Test step"""
-        x, y = batch
+    # def test_step(self, batch, batch_idx):
+    #     """Test step"""
+    #     x, y = batch
         
         
         
-        all_losses = []
-        all_logits = []
-        for g in range(self.group.elements().numel()):
-            x = self.group.trans(x, g)
+    #     all_losses = []
+    #     all_logits = []
+    #     for g in range(self.group.elements().numel()):
+    #         x = self.group.trans(x, g)
             
-            # Get predictions
-            with torch.no_grad():
-                if self.teacher is not None:
-                    teacher_logits = self.teacher(x)
-                    student_logits = self.model(x)
-                    loss = self.distillation_loss(student_logits, teacher_logits, temperature=self.train_config.temperature)
+    #         # Get predictions
+    #         with torch.no_grad():
+    #             if self.teacher is not None:
+    #                 teacher_logits = self.teacher(x)
+    #                 student_logits = self.model(x)
+    #                 loss = self.distillation_loss(student_logits, teacher_logits, temperature=self.train_config.temperature)
                     
-                else:
-                    student_logits = self.model(x)
-                    loss = self.cross_entropy_loss(student_logits, y)
+    #             else:
+    #                 student_logits = self.model(x)
+    #                 loss = self.cross_entropy_loss(student_logits, y)
             
-            all_logits.append(student_logits)
-            all_losses.append(loss)
-            # Compute loss
-            # loss, hard_loss, soft_loss = self.distillation_loss(student_logits, teacher_logits, y)
+    #         all_logits.append(student_logits)
+    #         all_losses.append(loss)
+    #         # Compute loss
+    #         # loss, hard_loss, soft_loss = self.distillation_loss(student_logits, teacher_logits, y)
             
-            # Log losses
-            self.log(f"test/total_loss_group{g}", loss, on_epoch=True, on_step=False)
-            # self.log("test/hard_loss", hard_loss, on_epoch=True, on_step=False)
-            # self.log("test/soft_loss", soft_loss, on_epoch=True, on_step=False)
+    #         # Log losses
+    #         self.log(f"test/total_loss_group{g}", loss, on_epoch=True, on_step=False)
+    #         # self.log("test/hard_loss", hard_loss, on_epoch=True, on_step=False)
+    #         # self.log("test/soft_loss", soft_loss, on_epoch=True, on_step=False)
             
-            # Update and log accuracy
-            self.test_accuracy_list[str(g)](student_logits, y)
-            self.log(f"test/accuracy_group{g}", self.test_accuracy_list[str(g)], on_epoch=True, on_step=False)
+    #         # Update and log accuracy
+    #         self.test_accuracy_list[str(g)](student_logits, y)
+    #         self.log(f"test/accuracy_group{g}", self.test_accuracy_list[str(g)], on_epoch=True, on_step=False)
         
         
 
-        logits_diff = all_logits[0] - all_logits[1]
-        self.log(f"test/logits_diff_g0_g1", torch.norm(logits_diff), on_epoch=True, on_step=False)
+    #     logits_diff = all_logits[0] - all_logits[1]
+    #     self.log(f"test/logits_diff_g0_g1", torch.norm(logits_diff), on_epoch=True, on_step=False)
         
-        return torch.stack(all_losses).mean(dim=0)
+    #     return torch.stack(all_losses).mean(dim=0)
     
     
     def on_after_backward(self):

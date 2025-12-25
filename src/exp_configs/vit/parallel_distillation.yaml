@@ -15,7 +15,6 @@ data:
 # =========================
 student_model:
   model_structure: equ_vit
-  group: FlipGroup   # FlipGroup or RotationGroup
 
   vit_config:
     img_size: 224
@@ -52,6 +51,7 @@ teacher_model:
 # =========================
 student_train:
   strategy: parallel_distillation
+  group: FlipGroup   # FlipGroup or RotationGroup
   epochs: 150
   learning_rate: 2e-5
   temperature: 3.0

@@ -399,40 +399,40 @@ class StudentParallelLayerLightningModule(BaseLightningModule):
         
         return layer_mse.mean()
     
-    def test_step(self, batch, batch_idx):
-        """Test step"""
-        x, y = batch
+    # def test_step(self, batch, batch_idx):
+    #     """Test step"""
+    #     x, y = batch
         
 
 
 
-        if self.train_config.flip_test_images:
-            x = torch.flip(x, dims=[-1])
+    #     # if self.train_config.flip_test_images:
+    #     #     x = torch.flip(x, dims=[-1])
         
-        # Get predictions
-        with torch.no_grad():
-            # teacher_logits = self.teacher(x)
-            student_logits = self.model(x)
+    #     # Get predictions
+    #     with torch.no_grad():
+    #         # teacher_logits = self.teacher(x)
+    #         student_logits = self.model(x)
             
-            if self.model.group_attn_channel_pooling:
-                student_logits = student_logits[0]
+    #         if self.model.group_attn_channel_pooling:
+    #             student_logits = student_logits[0]
         
-        # Compute loss
-        # loss, hard_loss, soft_loss = self.distillation_loss(student_logits, teacher_logits, y)
-        # loss = self.distillation_loss(student_logits, teacher_logits, y)
+    #     # Compute loss
+    #     # loss, hard_loss, soft_loss = self.distillation_loss(student_logits, teacher_logits, y)
+    #     # loss = self.distillation_loss(student_logits, teacher_logits, y)
         
-        loss = self.cross_entropy_loss(student_logits, y)
+    #     loss = self.cross_entropy_loss(student_logits, y)
         
-        # Log losses
-        self.log("test/total_loss", loss, prog_bar=True, on_epoch=True, on_step=False)
-        # self.log("test/hard_loss", hard_loss, on_epoch=True, on_step=False)
-        # self.log("test/soft_loss", soft_loss, on_epoch=True, on_step=False)
+    #     # Log losses
+    #     self.log("test/total_loss", loss, prog_bar=True, on_epoch=True, on_step=False)
+    #     # self.log("test/hard_loss", hard_loss, on_epoch=True, on_step=False)
+    #     # self.log("test/soft_loss", soft_loss, on_epoch=True, on_step=False)
         
-        # Update and log accuracy
-        self.test_accuracy(student_logits, y)
-        self.log("test/accuracy", self.test_accuracy, prog_bar=True, on_epoch=True, on_step=False)
+    #     # Update and log accuracy
+    #     self.test_accuracy(student_logits, y)
+    #     self.log("test/accuracy", self.test_accuracy, prog_bar=True, on_epoch=True, on_step=False)
         
-        return loss
+    #     return loss
     
 
     

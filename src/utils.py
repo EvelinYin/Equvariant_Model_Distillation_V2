@@ -43,8 +43,22 @@ def load_model_checkpoint(model: torch.nn.Module, ckpt_path: str):
         checkpoint = torch.load(ckpt_path, map_location='cpu')
         missing, unexpected = model.load_state_dict(checkpoint['state_dict'], strict=False)
         if unexpected:
-            print(f"Ignored the following keys: {unexpected}")
-            print(f"Loaded model weights from {ckpt_path}")
+            cleaned_state_dict = clean_state_dict(checkpoint['state_dict'])
+            missing, unexpected = model.load_state_dict(cleaned_state_dict, strict=False)
+            if unexpected:
+                print(f"Ignored the following keys: {unexpected}")
+                print(f"Loaded model weights from {ckpt_path}")
         return model
     except Exception as e:
         breakpoint()
+
+def clean_state_dict(state_dict: dict) -> dict:
+    """Remove 'model.' prefix from state dict keys if present"""
+    new_state_dict = {}
+    for key, value in state_dict.items():
+        if key.startswith('model.'):
+            new_key = key[len('model.'):]
+        else:
+            new_key = key
+        new_state_dict[new_key] = value
+    return new_state_dict
