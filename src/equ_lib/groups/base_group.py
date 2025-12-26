@@ -75,20 +75,36 @@ class GroupBase(torch.nn.Module):
         """
         raise NotImplementedError()
     
-    def trans_weight(self, x, g):
+    def trans(self, x, g):
         """ Transform weights defined over the group according to the group action.
 
         @param x: Weights defined over the group.
         """
         raise NotImplementedError()
     
-    def roll_weight(self, x, g):
+    def roll(self, x, g):
         """ Roll weights defined over the group according to the group action.
 
         @param x: Weights defined over the group.
         """
         raise NotImplementedError()
 
+    def get_canonicalization_ref(self, device, dtype):
+        """ Obtain the reference elements for canonicalization.
+
+        @param device:
+        @param dtype:
+        """
+        raise NotImplementedError()
+    
+    def get_canonicalized_images(self, images, indicator):
+        """ Obtain canonicalized images according to the group action.
+
+        @param images:
+        @param indicator:
+        """
+        raise NotImplementedError()
+    
     def normalize_group_elements(self, h):
         """ Map the group elements to an interval [-1, 1]. We use this to create
         a standardized input for obtaining weights over the group.

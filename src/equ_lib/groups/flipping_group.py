@@ -115,7 +115,17 @@ class FlipGroup(GroupBase):
             C, G, H, W = x.shape
             return torch.roll(x, shifts=1, dims=1)
 
-        
+    def get_canonicalization_ref(self, device, dtype):
+        # 0 -> Identity, 1 -> Flip
+        return torch.tensor([0., 1.], device=device, dtype=dtype)
+    
+    
+    def get_canonicalized_images(self, images, indicator):
+        flipped = torch.flip(images, dims=[-1]) 
+        indicator = indicator.view(-1, 1, 1, 1)
+        canonicalized_images = (1 - indicator) * images + indicator * flipped
+        return canonicalized_images, indicator
+    
     # def determinant(self, h):
     #     h = torch.as_tensor(h)
     #     # det(Identity) = 1, det(Flip) = -1

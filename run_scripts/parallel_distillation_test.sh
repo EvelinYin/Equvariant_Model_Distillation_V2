@@ -33,11 +33,12 @@
 
 CUDA_VISIBLE_DEVICES=0 python main.py \
   --config src/exp_configs/vit/parallel_distillation.yaml \
-  student_train.student_ckpt_path=/home/yin178/Equvariant_Model_Distillation_V2/outputs/cifar100/student/equ_vit/parallel_distillationrandom_double_channel_init_ViT/checkpoints/best.ckpt\
+  student_train.student_ckpt_path=/home/yin178/Equvariant_Model_Distillation_V2/outputs/cifar100/student/equ_vit/parallel_distillationrandom_double_channel_init_ViT/checkpoints/best-v9.ckpt\
   precision=32 \
   data.num_workers=0 \
   test_only=true \
-  logging.wandb_mode="offline"
+  logging.wandb_mode="offline" \
+  student_model.vit_config.group_attn_channel_pooling=true
 
 
 
