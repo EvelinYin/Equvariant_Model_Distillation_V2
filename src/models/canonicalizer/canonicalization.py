@@ -34,8 +34,7 @@ class CanonicalizationNetwork(torch.nn.Module):
 
     def get_canonicalized_images(self, images, fibre_features):
         num_group_elements = fibre_features.shape[-1]
-        # num_rotations = num_group_elements
-        # print(f"fibre_features: {fibre_features.shape}")
+        # breakpoint()
         fibre_features_one_hot = F.one_hot(
             torch.argmax(fibre_features, dim=-1), num_group_elements
         ).float()

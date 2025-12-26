@@ -55,8 +55,8 @@ class LogitOverGroups(torch.nn.Module):
             x = torch.nn.functional.layer_norm(x, x.shape[-4:])
             x = torch.nn.functional.relu(x)
             x = torch.nn.functional.dropout(x, self.dropout_p, training=self.training)
-
-        return torch.mean(x, dim=[-2, -1])
+        # breakpoint()
+        return torch.mean(x, dim=[-1, -2, -3])
 
         
 

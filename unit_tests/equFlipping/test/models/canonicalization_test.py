@@ -6,7 +6,7 @@ from src.equ_lib.groups.flipping_group import FlipGroup
 
 def test_canonicalization_forward():
     in_channels = 3
-    out_channels = 2
+    out_channels = 4
     batchsize = 1
     S = 32
 
@@ -23,13 +23,16 @@ def test_canonicalization_forward():
 
     layer.eval()
     layer = layer.to(torch.float64)
-
-    x = torch.randn(batchsize, in_channels, S, S).to(torch.float64)
-    fx = torch.flip(x, dims=(-1,))
-
-    out_x, _, indicator_1 = layer(x)
-    out_fx, _, indicator_2  = layer(fx)
     
-    breakpoint()
+    diff = 0.0
+    for i in range(100):
+        x = torch.randn(batchsize, in_channels, S, S).to(torch.float64)
+        fx = torch.flip(x, dims=(-1,))
 
-    return torch.norm(out_x - out_fx).item()
+        out_x, _, indicator_1 = layer(x)
+        out_fx, _, indicator_2  = layer(fx)
+        diff += torch.norm(out_x - out_fx).item()
+    
+    # breakpoint()
+
+    return diff
