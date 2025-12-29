@@ -32,6 +32,15 @@ class DataConfig:
     num_classes: int = 100 #change to 10 if using MNIST
 
 
+@dataclass
+class CanonicalizerConfig:
+    in_channels: int = 3
+    out_channels: int = 1
+    kernel_size: int = 3
+    hidden_channel_list: list = field(default_factory=lambda: [64, 128])
+    dropout_p: float = 0.2
+
+
 
 @dataclass
 class ViTConfig:
@@ -69,11 +78,12 @@ class CNNConfig:
 @dataclass
 class TeacherModelConfig:
     """Teacher model configuration"""
-    model_structure: str = "pretrained_ViT"  # "pretrained_ViT" or ?
+    model_structure: str = "pretrained_ViT"  # "pretrained_ViT"
     vit_config: ViTConfig = field(default_factory=ViTConfig)
     pretrained_vit_config: PretrainedViTConfig = field(default_factory=PretrainedViTConfig)
     vit_config: ViTConfig = field(default_factory=ViTConfig)
     cnn_config: CNNConfig = field(default_factory=CNNConfig)
+    canonicalizer_config: CanonicalizerConfig = field(default_factory=CanonicalizerConfig)
 
 
 
@@ -85,8 +95,6 @@ class StudentModelConfig:
     vit_config: ViTConfig = field(default_factory=ViTConfig)
     cnn_config: CNNConfig = field(default_factory=CNNConfig)
     
-
-
 @dataclass
 class TeacherTrainConfig:
     """Teacher model training configuration"""
@@ -96,6 +104,9 @@ class TeacherTrainConfig:
     
     # This is for testing steps
     group: str = "FlipGroup"  # "FlipGroup" or "RotationGroup"
+    
+    use_canonicalizer: bool = False # Whether to use canonicalizer during training
+    
     
     
     # Learning rate scheduler
@@ -109,8 +120,11 @@ class TeacherTrainConfig:
 @dataclass
 class StudentTrainConfig:
     """Student model training configuration"""
-    strategy: str = 'parallel_distillation' # 'parallel_distillation' or ?
+    # strategy: 'parallel_distillation' or "equ_naive_distillation" 
+    # or 'equ_train_on_GT'  or 'non_equ_train_on_GT'
+    strategy: str = 'parallel_distillation' 
     group: str = "FlipGroup"  # "FlipGroup" or "RotationGroup"
+    
     epochs: int = 15
     learning_rate: float = 5e-4
     temperature: float = 3.0

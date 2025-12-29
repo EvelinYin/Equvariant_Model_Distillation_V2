@@ -6,6 +6,8 @@ from typing import Dict, Any
 import sys
 import os
 
+from sklearn.decomposition import PCA
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.models.ViT.pretrained_HF import PretrainedViT
@@ -29,6 +31,60 @@ def copy_conv_weight(equ_weight, pretrained_weight):
     equ_weight[0::2] = expanded
     return equ_weight
 
+
+
+def compress_weights_pca(weight_tensor: torch.Tensor, out_channels: int, new_out_channels: int) -> torch.Tensor:
+    """
+    Compresses a weight tensor along the output channel dimension using PCA.
+    
+    Args:
+        weight_tensor (torch.Tensor): The weights to compress. 
+                                     Shape: [Out_C, In_C] or [Out_C, In_C, K1, K2]
+        out_ratio (float): The ratio of channels to keep (e.g., 0.5 for half).
+        
+    Returns:
+        torch.Tensor: The compressed weight tensor.
+    """
+    # # 1. Determine target dimensions
+    original_shape = weight_tensor.shape
+    # out_channels = original_shape[0]
+    # new_out_channels = max(1, int(out_channels * out_ratio))
+    
+    # 2. Flatten weight to (Out_Channels, Features)
+    # This works for Linear (O, I) and Conv2d (O, I, H, W)
+
+    flat_weight = weight_tensor.reshape(out_channels, -1).numpy()
+    n_features, n_samples = flat_weight.shape
+    
+    if n_samples == 1 or weight_tensor.ndim == 1 or new_out_channels >= n_samples:
+        # For 1D data, PCA is impossible. We use linear interpolation or truncation.
+        # This effectively "downsamples" the vector.
+        indices = torch.linspace(0, n_features - 1, new_out_channels).to(torch.int64)
+        reduced_weight = flat_weight[indices]
+        
+    else:
+        # We want to reduce the NUMBER of channels (n_samples).
+        # PCA reduces n_features. So we TRANSPOSE to make channels the features.
+        # New Shape: (n_features, n_samples)
+        transformed_input = flat_weight.T 
+        
+        # Ensure we don't request more components than samples available
+        n_comp = min(new_out_channels, transformed_input.shape[0])
+        
+        pca = PCA(n_components=n_comp)
+        # Result: (n_features, n_comp)
+        reduced_weight_T = pca.fit_transform(transformed_input)
+        
+        # Transpose back to (target_c, n_features)
+        reduced_weight = reduced_weight_T.T
+        
+    # 4. Reshape back to the original format, but with reduced Out_Channels
+    new_shape = (new_out_channels, *original_shape[1:])
+    return torch.from_numpy(reduced_weight).view(new_shape)
+
+
+    
+    
 
 
 
@@ -127,7 +183,9 @@ def cnn_initialize_student_from_teacher(teacher_model: nn.Module, student_model:
     
     return student_model
 
-def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, student_model: nn.Module, teacher_ckpt_path: str, cls_feat_path: str, precision=torch.float16, scale_factor=1) -> nn.Module:
+def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, student_model: nn.Module, teacher_ckpt_path: str,\
+                                                    precision=torch.float16, scale_factor=1, \
+                                                        use_pca=False) -> nn.Module:
     """
     Load teacher model checkpoint and initialize student model weights from teacher.
     
@@ -147,11 +205,6 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
     else:
         teacher_state_dict = teacher_ckpt
     
-    # Remove 'model.' prefix from checkpoint keys if present
-    
-
-    # teacher_state_dict = {k.replace('model.m', 'm', 1): v for k, v in teacher_state_dict.items()}
-    
     # Load teacher weights
     teacher_model.load_state_dict(teacher_state_dict)
     
@@ -160,31 +213,31 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
     
     copied_state_dict = student_state_dict.copy()
     
-
-    for name, param in student_model.named_parameters():
+    for name, param in tqdm(student_model.named_parameters(), desc="Initializing student from teacher"):
         # breakpoint()
         if "add_pos_embed" in name:
             continue
         # This is only for the normal cls token
         if 'cls_token' in name:
-            C = param.shape[-1]
-            copied_state_dict[name] = teacher_state_dict['model.model.vit.embeddings.cls_token'][:,:,:C].clone()
+
+            #(1,1,C)
+            C = param.shape[-1] 
+            teacher_weight = teacher_state_dict['model.model.vit.embeddings.cls_token']
+            
+            if use_pca:
+                compressed_cls_token = compress_weights_pca(teacher_weight.permute(2, 0, 1), \
+                                                            teacher_weight.shape[-1],
+                                                            C)
+                copied_state_dict[name] = compressed_cls_token.permute(1,2,0).clone()
+            else:
+                copied_state_dict[name] = teacher_weight[:,:,:C].clone()
         
         elif 'non_equ_pos_embed' in name:
             breakpoint()
             teacher_doubled_pos_embd = torch.cat([teacher_state_dict['model.model.vit.embeddings.position_embeddings'], torch.zeros_like(teacher_state_dict['model.model.vit.embeddings.position_embeddings'])], dim=-1)
             copied_state_dict[name] = teacher_doubled_pos_embd.clone()
         
-        elif "cls_pooling_layer" in name:
-            breakpoint()
-            copied_state_dict[name] = torch.zeros_like(param, dtype=precision)
-            if "weight" in name:
-                C_out, C_in = param.shape
-                identity_block = torch.eye(C_out, dtype=precision)
-                zero_block = torch.zeros(C_out, C_out, dtype=precision)
-                copied_state_dict[name]= torch.cat([identity_block, zero_block], dim=1)
-                copied_state_dict[name] = copied_state_dict[name].to(param.dtype)
-        
+
         elif "liftinglayer" in name:
             if "weight" in name:
                 H, W, _, _, = param.shape
@@ -198,22 +251,28 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
                 copied_state_dict[name] = torch.zeros_like(param)
                 # copied_state_dict[name] += 1e-5
                 C = param.shape[0]
-                # breakpoint()
+                if use_pca:
+                    copied_state_dict[name][:, :, 0::2, :, :] = compress_weights_pca(teacher_state_dict[teacher_name],
+                                                                                    teacher_state_dict[teacher_name].shape[0], C).unsqueeze(2).clone()
+                else:
                 # copied_state_dict[name][0::2, 0::2, :, :] = teacher_state_dict[teacher_name][:C//scale_factor].clone()
-                copied_state_dict[name][:, :, 0::2, :, :] = teacher_state_dict[teacher_name][:C].unsqueeze(2).clone()
+                    copied_state_dict[name][:, :, 0::2, :, :] = teacher_state_dict[teacher_name][:C].unsqueeze(2).clone()
                 
             elif "bias" in name:
                 teacher_name = name.replace("patch_embed.grouplayer", "model.model.vit.embeddings.patch_embeddings.projection")
                 C_out = param.shape[0]
                 copied_state_dict[name] = torch.zeros_like(param)
                 # copied_state_dict[name] += 1e-5
-                copied_state_dict[name] = teacher_state_dict[teacher_name][:C_out].clone() 
+                if use_pca:
+                    copied_state_dict[name] = compress_weights_pca(teacher_state_dict[teacher_name],
+                                                                     teacher_state_dict[teacher_name].shape[0], C_out).clone()
+                else:
+                    copied_state_dict[name] = teacher_state_dict[teacher_name][:C_out].clone() 
         # elif 'add_pos_embed' in name:
         #     teacher_name = 'encoder.pos_embedding'
         #     student_state_dict[name] = teacher_state_dict[teacher_name].clone()
         
         elif 'norm' in name:
-            
             teacher_name = name.replace("blocks.", "model.model.vit.encoder.layer.")
             if "norm.norm" in name:
                 # This is the last layer norm
@@ -227,7 +286,11 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
             
             try:
                 C_t = teacher_state_dict[teacher_name].shape[0]
-                copied_state_dict[name] = teacher_state_dict[teacher_name][:C_t//scale_factor].clone()
+                if use_pca:
+                    copied_state_dict[name] = compress_weights_pca(teacher_state_dict[teacher_name],
+                                                                  C_t, C_s).clone()
+                else:
+                    copied_state_dict[name] = teacher_state_dict[teacher_name][:C_t//scale_factor].clone()
             except:
                 print("Error in copying norm weights")
                 breakpoint()
@@ -247,22 +310,36 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
 
                         if 'shared_q' in name:
                             teacher_name = teacher_name.replace("attn.shared_q.learnable_weights.0", "attention.attention.query.weight")
-                            copied_state_dict[name] = teacher_state_dict[teacher_name][:C_s, :P].clone()
                         elif 'shared_k' in name:
                             teacher_name = teacher_name.replace("attn.shared_k.learnable_weights.0", "attention.attention.key.weight")
-                            copied_state_dict[name] = teacher_state_dict[teacher_name][:C_s, :P].clone()
                         elif 'shared_v' in name:
                             teacher_name = teacher_name.replace("attn.shared_v.learnable_weights.0", "attention.attention.value.weight")
-                            copied_state_dict[name] = teacher_state_dict[teacher_name][:C_s, :P].clone()
                         else:
                             print("1")
                             breakpoint()
+                        
+                        if use_pca:
+                            reduced_out = compress_weights_pca(teacher_state_dict[teacher_name],
+                                                                     teacher_state_dict[teacher_name].shape[0], C_s)
+                            reduced_in = compress_weights_pca(reduced_out.T,
+                                                                      teacher_state_dict[teacher_name].shape[0], P).T
+                            copied_state_dict[name] = reduced_in.clone()
+                        else:   
+                            copied_state_dict[name] = teacher_state_dict[teacher_name][:C_s, :P].clone()
+                        
                                 
                                 
                     elif 'proj' in name:
                         teacher_name = teacher_name.replace("attn.proj.learnable_weights.0", "attention.output.dense.weight")
                         C, P = param.shape
-                        copied_state_dict[name] = teacher_state_dict[teacher_name][:C, :P].clone()
+                        if use_pca:
+                            reduced_out = compress_weights_pca(teacher_state_dict[teacher_name],
+                                                                     teacher_state_dict[teacher_name].shape[0], C) 
+                            reduced_in = compress_weights_pca(reduced_out.T,
+                                                                      teacher_state_dict[teacher_name].shape[0], P).T
+                            copied_state_dict[name] = reduced_in.clone()
+                        else:
+                            copied_state_dict[name] = teacher_state_dict[teacher_name][:C, :P].clone()
                     
                     else:
                         print("2")
@@ -274,22 +351,29 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
                         C_s = param.shape[0]
                         if 'shared_q' in name:
                             teacher_name = teacher_name.replace("attn.shared_q.learnable_bias", "attention.attention.query.bias")
-                            copied_state_dict[name] = teacher_state_dict[teacher_name][:C_s].clone()
                         elif 'shared_k' in name:
                             teacher_name = teacher_name.replace("attn.shared_k.learnable_bias", "attention.attention.key.bias")
-                            copied_state_dict[name] = teacher_state_dict[teacher_name][:C_s].clone()
                         elif 'shared_v' in name:
                             teacher_name = teacher_name.replace("attn.shared_v.learnable_bias", "attention.attention.value.bias")
-                            copied_state_dict[name] = teacher_state_dict[teacher_name][:C_s].clone()
                         else:
                             print("3")
-                            
                             breakpoint()
+                        
+                        if use_pca:
+                            copied_state_dict[name] = compress_weights_pca(teacher_state_dict[teacher_name],
+                                                                     teacher_state_dict[teacher_name].shape[0], C_s).clone()  
+                        else:
+                            copied_state_dict[name] = teacher_state_dict[teacher_name][:C_s].clone()
+                        
                                 
                     elif 'proj' in name:
                         teacher_name = teacher_name.replace("attn.proj.learnable_bias", "attention.output.dense.bias")
                         C = param.shape[0]
-                        copied_state_dict[name] = teacher_state_dict[teacher_name][:C].clone()
+                        if use_pca:
+                            copied_state_dict[name] = compress_weights_pca(teacher_state_dict[teacher_name],
+                                                                     teacher_state_dict[teacher_name].shape[0], C).clone()
+                        else:
+                            copied_state_dict[name] = teacher_state_dict[teacher_name][:C].clone()
                     else:
                         print("4")
                         
@@ -313,24 +397,40 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
                 if 'bias' not in name:
                     if 'fc1' in name:
                         teacher_name = teacher_name.replace("mlp.fc1.learnable_weights.0", "intermediate.dense.weight")
-                        C, P = param.shape
-                        copied_state_dict[name] = teacher_state_dict[teacher_name][:C, :P].clone()
+                        
                     elif 'fc2' in name:
                         teacher_name = teacher_name.replace("mlp.fc2.learnable_weights.0", "output.dense.weight")
-                        C, P = param.shape
-                        copied_state_dict[name] = teacher_state_dict[teacher_name][:C, :P].clone()
                     else:
                         breakpoint()
+                    
+                    C, P = param.shape
+                    
+                    if use_pca:                        
+                        reduced_out = compress_weights_pca(teacher_state_dict[teacher_name].T,
+                                                                 teacher_state_dict[teacher_name].shape[1], P).T
+                        
+                        reduced_in = compress_weights_pca(reduced_out,
+                                                                  teacher_state_dict[teacher_name].shape[0], C)
+                        copied_state_dict[name] = reduced_in.clone()
+                    else:
+                        copied_state_dict[name] = teacher_state_dict[teacher_name][:C, :P].clone()
                         
                 elif 'bias' in name:
                     if 'fc1' in name:
                         teacher_name = teacher_name.replace("mlp.fc1.learnable_bias", "intermediate.dense.bias")
-                        C = param.shape[0]
-                        copied_state_dict[name] = teacher_state_dict[teacher_name][:C].clone()
                     elif 'fc2' in name:
                         teacher_name = teacher_name.replace("mlp.fc2.learnable_bias", "output.dense.bias")
-                        C = param.shape[0]
+                    else:
+                        breakpoint()
+                    
+                    C = param.shape[0]
+                    
+                    if use_pca:
+                        copied_state_dict[name] = compress_weights_pca(teacher_state_dict[teacher_name],
+                                                                 teacher_state_dict[teacher_name].shape[0], C).clone()
+                    else:
                         copied_state_dict[name] = teacher_state_dict[teacher_name][:C].clone()
+                    
                 else:
                     print("8")
                     breakpoint()
@@ -342,8 +442,18 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
             teacher_name = name.replace("head", "model.model.classifier")
             if param.ndim == 2:
                 C = param.shape[1]
-                copied_state_dict[name] = teacher_state_dict[teacher_name][:, :C].clone()
+                
+                
+                if use_pca:
+                    copied_state_dict[name] = compress_weights_pca(teacher_state_dict[teacher_name].T,
+                                                                     teacher_state_dict[teacher_name].shape[1], C).T.clone()
+                    
+                else:
+                    copied_state_dict[name] = teacher_state_dict[teacher_name][:, :C].clone()
             elif param.ndim ==1:
+                
+                # breakpoint()       
+                
                 copied_state_dict[name] = teacher_state_dict[teacher_name].clone()
             else:
                 print("9")
@@ -553,9 +663,7 @@ def check_state_dicts_match(dict1, dict2):
 
 
 if __name__ == "__main__":
-    import sys
-    import os
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
     
     # from src.models.CNN.teacher_model import CNN_TeacherModel
     # from src.models.CNN.student_model import CNN_FlippingInvStudentModel
@@ -568,6 +676,7 @@ if __name__ == "__main__":
     
     
     from src.models.ViT.equ_vit import EquViT
+    from tqdm import tqdm
     
     # teacher_model = torch_models.vit_b_16(pretrained=True)
     # teacher_model.heads.head = nn.Linear(768, 100)
@@ -577,10 +686,15 @@ if __name__ == "__main__":
     
     # teacher_model = get_pretrained_teacher_model(model_name="google/vit-base-patch16-224-in21k", num_classes=100)
     
+    ################Configs for intialization#######################
     teacher_model = PretrainedViT(model_name="google/vit-base-patch16-224", num_classes=100)
+    # teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/ViT/teacher/pretrained_finetuned/epoch=07.ckpt"
+    teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/teacher/google/vit-base-patch16-224/best_fixed.ckpt"
+    precision = torch.float32
     embed_dim = 384
     # embed_dim = 768
     scale_factor = 768 // embed_dim
+    use_pca = False
     
     student_model = EquViT(  
             img_size=224,
@@ -596,18 +710,11 @@ if __name__ == "__main__":
             attention_per_channel=True, 
             linear_pooling=False
             )
-    # teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/ViT/teacher/pretrained_finetuned/epoch=07.ckpt"
-    teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/teacher/google/vit-base-patch16-224/best_fixed.ckpt"
-    cls_feat_path = "./outputs/CIFAR100/cls_features/cls_features.pt"
 
-    # cls_feat = torch.load(cls_feat_path)
-
-    # breakpoint()
-    # student_model.linear_pooling_layer.ls_init(cls_feat)
-    precision = torch.float32
     
     copied_state_ckpt = pretrained_vit_initialize_student_from_teacher(teacher_model, student_model, teacher_ckpt_path,
-                                                                       cls_feat_path, precision, scale_factor=scale_factor)
+                                                                       precision, scale_factor=scale_factor, \
+                                                                        use_pca=use_pca)
     
     check_state_dicts_match(copied_state_ckpt, student_model.state_dict())
     
@@ -616,7 +723,7 @@ if __name__ == "__main__":
     student_model_ckpt['state_dict'] = copied_state_ckpt
     # output_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init.ckpt"
     # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/double_channel/zero_init_v2.ckpt"
-    output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init_v2.ckpt"
+    output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init_pca.ckpt"
     
     
     # output_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/student/initialization/nonequ_pos_embed_real_zero_init.ckpt"

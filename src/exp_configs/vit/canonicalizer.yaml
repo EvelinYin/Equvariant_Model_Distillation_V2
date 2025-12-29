@@ -1,0 +1,63 @@
+# =========================
+# Data configuration
+# =========================
+data:
+  dataset_name: cifar100
+  data_dir: ./datasets
+  imagnet_normalization: true
+  batch_size: 32
+  num_workers: 16
+  num_classes: 100
+
+
+
+
+# =========================
+# Teacher model configuration
+# =========================
+teacher_model:
+  model_structure: pretrained_ViT
+
+  pretrained_vit_config:
+    model_name: google/vit-base-patch16-224
+    num_classes: 100
+  
+  canonicalizer_config:
+    in_channels: 3
+    out_channels: 3
+    kernel_size: 3
+    hidden_channel_list: [32, 64, 128]
+    dropout_p: 0.2
+
+
+# =========================
+# Teacher checkpoint
+# =========================
+teacher_train:
+  use_canonicalizer: true
+  epochs: 300
+  learning_rate: 3e-4
+  teacher_ckpt_path: ""
+
+
+
+
+
+# =========================
+# Logging configuration
+# =========================
+logging:
+  project_name: equvariant-distillation
+  entity: null
+  log_frequency: 50
+  outputs_dir: ./outputs
+  wandb_name: canonicalizer
+  wandb_mode: online
+
+
+# =========================
+# Global configuration
+# =========================
+device: cuda
+seed: 42
+precision: 16-mixed # "32" or "16-mixed"

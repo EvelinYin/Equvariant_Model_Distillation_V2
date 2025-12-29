@@ -8,12 +8,12 @@ import matplotlib.pyplot as plt
 class CanonicalizationNetwork(torch.nn.Module):
     def __init__(
         self,
-        group,
         in_channels,
         out_channels,
         kernel_size,
         hidden_channel_list,
         dropout_p,
+        group
     ):
         super().__init__()
         self.group = group

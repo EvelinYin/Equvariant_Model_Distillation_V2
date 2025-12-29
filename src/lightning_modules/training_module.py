@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Dict, Union
+from typing import Any, Dict, Union
 
 from torchmetrics import Accuracy
 from .base_module import BaseLightningModule
@@ -21,6 +21,7 @@ class LightningTrainingModule(BaseLightningModule):
         model: nn.Module,
         train_config:  Union[TeacherTrainConfig, StudentTrainConfig],
         teacher_model: nn.Module = None,
+        canonicalizer: nn.Module = None,
         num_classes: int = 10
     ):
         """
@@ -39,6 +40,13 @@ class LightningTrainingModule(BaseLightningModule):
             self.teacher.eval()
             self.teacher.requires_grad_(False)
             self.distillation_loss = distillation_loss
+        
+
+        if canonicalizer is None:
+            self.canonicalizer = None
+        else:
+            self.canonicalizer = canonicalizer
+        
         
         self.train_config = train_config
         
@@ -73,6 +81,9 @@ class LightningTrainingModule(BaseLightningModule):
         """Training step with knowledge distillation"""
         x, y = batch
         
+        if self.canonicalizer is not None:
+            x, _, _ = self.canonicalizer(x)
+        
         # Get student predictions
         logits = self.model(x)
 
@@ -93,6 +104,9 @@ class LightningTrainingModule(BaseLightningModule):
     def validation_step(self, batch, batch_idx):
         """Validation step"""
         x, y = batch
+        
+        if self.canonicalizer is not None:
+            x, _, _ = self.canonicalizer(x)
         
         with torch.no_grad():
             # Get student predictions
@@ -116,49 +130,17 @@ class LightningTrainingModule(BaseLightningModule):
         
         return loss
     
-    # def test_step(self, batch, batch_idx):
-    #     """Test step"""
-    #     x, y = batch
+    def test_step(self, batch: Any, batch_idx: int):
+        """Test step"""
+        # pass
+        x, y = batch
         
+        if self.canonicalizer is not None:
+            x, _, _ = self.canonicalizer(x)
         
-        
-    #     all_losses = []
-    #     all_logits = []
-    #     for g in range(self.group.elements().numel()):
-    #         x = self.group.trans(x, g)
-            
-    #         # Get predictions
-    #         with torch.no_grad():
-    #             if self.teacher is not None:
-    #                 teacher_logits = self.teacher(x)
-    #                 student_logits = self.model(x)
-    #                 loss = self.distillation_loss(student_logits, teacher_logits, temperature=self.train_config.temperature)
-                    
-    #             else:
-    #                 student_logits = self.model(x)
-    #                 loss = self.cross_entropy_loss(student_logits, y)
-            
-    #         all_logits.append(student_logits)
-    #         all_losses.append(loss)
-    #         # Compute loss
-    #         # loss, hard_loss, soft_loss = self.distillation_loss(student_logits, teacher_logits, y)
-            
-    #         # Log losses
-    #         self.log(f"test/total_loss_group{g}", loss, on_epoch=True, on_step=False)
-    #         # self.log("test/hard_loss", hard_loss, on_epoch=True, on_step=False)
-    #         # self.log("test/soft_loss", soft_loss, on_epoch=True, on_step=False)
-            
-    #         # Update and log accuracy
-    #         self.test_accuracy_list[str(g)](student_logits, y)
-    #         self.log(f"test/accuracy_group{g}", self.test_accuracy_list[str(g)], on_epoch=True, on_step=False)
-        
+        self.compute_and_log_equ_tests(x, y)
         
 
-    #     logits_diff = all_logits[0] - all_logits[1]
-    #     self.log(f"test/logits_diff_g0_g1", torch.norm(logits_diff), on_epoch=True, on_step=False)
-        
-    #     return torch.stack(all_losses).mean(dim=0)
-    
     
     def on_after_backward(self):
         # "2" refers to the L2 norm (Euclidean)

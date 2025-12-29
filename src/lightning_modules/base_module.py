@@ -84,15 +84,8 @@ class BaseLightningModule(pl.LightningModule):
         loss = self.compute_and_log_loss(output, y)
 
         return loss
-
-    # --- Common Test Loop ---
-    def test_step(self, batch: Any, batch_idx: int):
-        """Test step"""
-        # pass
-        x, y = batch
-        
-        
-        
+    
+    def compute_and_log_equ_tests(self, x: Any, y: Any) -> Dict[str, torch.Tensor]:
         all_logits = []
         for g in range(self.group.elements().numel()):
             x = self.group.trans(x, g)
@@ -107,13 +100,6 @@ class BaseLightningModule(pl.LightningModule):
             
             all_logits.append(student_logits)
             
-            # Log losses
-            # self.log(f"test/total_loss_group{g}", loss, on_epoch=True, on_step=False)
-            # self.log("test/hard_loss", hard_loss, on_epoch=True, on_step=False)
-            # self.log("test/soft_loss", soft_loss, on_epoch=True, on_step=False)
-            
-
-            
             # Update and log accuracy
             self.test_accuracy_list[str(g)](student_logits, y)
             self.log(f"test/accuracy_group{g}", self.test_accuracy_list[str(g)], on_epoch=True, on_step=False)
@@ -122,6 +108,16 @@ class BaseLightningModule(pl.LightningModule):
 
         logits_diff = all_logits[0] - all_logits[1]
         self.log(f"test/logits_diff_g0_g1", torch.norm(logits_diff), on_epoch=True, on_step=False)
+
+
+    # --- Common Test Loop ---
+    def test_step(self, batch: Any, batch_idx: int):
+        """Test step"""
+        # pass
+        x, y = batch
+        
+        self.compute_and_log_equ_tests(x, y)
+        
         
 
 

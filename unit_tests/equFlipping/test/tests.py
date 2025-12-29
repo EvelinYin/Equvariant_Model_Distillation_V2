@@ -18,7 +18,7 @@ from components.channel_layer_norm_test import test_channel_layer_norm_forward, 
 
 
 from models.vit_end_to_end_test import test_vit_forward, test_vit_backward
-from models.canonicalization_test import test_canonicalization_forward
+from models.canonicalization_test import test_canonicalization_forward, test_canonicalization_backward
 from models.resnet_end_to_end_test import test_resnet_forward
 
 
@@ -93,6 +93,10 @@ class TestModels(unittest.TestCase):
     def test_canonicalization_forward(self):
         equ_error = test_canonicalization_forward()
         print("Canonicalization Network Equivarinace Error -->", equ_error)
+        assert equ_error < 1e-10
+        
+        equ_error = test_canonicalization_backward()
+        print("Canonicalization Network Equivarinace Error (backward) -->", equ_error, "\n")
         assert equ_error < 1e-10
     
     

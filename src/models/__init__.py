@@ -1,6 +1,7 @@
 from .ViT.equ_vit import EquViT
 from .ViT.pretrained_HF import PretrainedViT
 from .ResNet50.equ_resnet import EquResNet
+from .canonicalizer.canonicalization import CanonicalizationNetwork
 from src.config import StudentModelConfig, TeacherModelConfig
 from src.equ_lib.groups import get_group
 from typing import Union
@@ -14,6 +15,7 @@ _MODELS = {
     "pretrained_ViT": PretrainedViT,
     "equ_vit": EquViT,
     "equ_resnet50": EquResNet,
+    "canonicalizer": CanonicalizationNetwork,
 }
 
 def available_models():
@@ -31,6 +33,8 @@ def get_model(name: str, config: Union[StudentModelConfig, TeacherModelConfig], 
         params = config.vit_config
     elif "cnn" in name:
         params = config.cnn_config
+    elif name == "canonicalizer":
+        params = config.canonicalizer_config
     
     if group is not None:
         group = get_group(group)

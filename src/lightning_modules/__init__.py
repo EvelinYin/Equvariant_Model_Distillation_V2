@@ -26,6 +26,18 @@ def get_lightining_modules(strategy: str, config: Config,
         'num_classes': config.data.num_classes
     }
     
+    # Canonicalizer baseline
+    if config.teacher_train.use_canonicalizer and teacher_model is None:
+        from src.models import get_model
+        canonicalizer = get_model(
+            name="canonicalizer",
+            config=config.teacher_model,
+            group=config.student_train.group
+        )
+        params['canonicalizer'] = canonicalizer
+    
+    
+    
     if strategy == 'parallel_distillation':
         params['train_config'] = config.student_train
         params['teacher_model'] = teacher_model
