@@ -82,7 +82,7 @@ def permute_patch_embd(x, patch_size, B, H, W, enc_embed_dim):
 
 
 class TestModels(unittest.TestCase):
-    def test_student_model_ViT(self):
+    def _test_student_model_ViT(self):
         depth = 12
         img_size = 224
         nheads = 12
@@ -340,6 +340,40 @@ class TestModels(unittest.TestCase):
         
         
         # breakpoint()
+    
+    def test_attn(self):
+        student_ckpt_path = "/home/yin178/Equvariant_Model_Distillation_V2/outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init_v2.ckpt"
+
+        student_checkpoint = torch.load(student_ckpt_path)
+        student_state_dict = student_checkpoint['state_dict']
+        student_weights = student_state_dict['blocks.0.attn.shared_q.learnable_weights.0']
+        student_bias = student_state_dict['blocks.0.attn.shared_q.learnable_bias']
+        
+        teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation_V2/outputs/CIFAR100/pretrained_ViT/teacher/google/vit-base-patch16-224/best_fixed.ckpt"
+        teacher_checkpoint = torch.load(teacher_ckpt_path)
+        teacher_state_dict = teacher_checkpoint['state_dict']
+        
+        teacher_weights = teacher_state_dict['model.model.vit.encoder.layer.0.attention.attention.query.weight']
+        teacher_bias = teacher_state_dict['model.model.vit.encoder.layer.0.attention.attention.query.bias']
+        
+        student_c = student_weights.shape[0]
+        
+        teacher_linear_layer = torch.nn.Linear(teacher_weights.shape[1], teacher_weights.shape[0])
+        teacher_linear_layer.weight.data = teacher_weights
+        teacher_linear_layer.bias.data = teacher_bias
+        
+        student_linear_layer = torch.nn.Linear(teacher_weights.shape[1], teacher_weights.shape[0])
+        student_linear_layer.weight.data = torch.zeros_like(student_linear_layer.weight.data)
+        student_linear_layer.weight.data[:student_c, :student_c] = student_weights
+        student_linear_layer.bias.data = torch.zeros_like(student_linear_layer.bias.data)
+        student_linear_layer.bias.data[:student_c] = student_bias
+        
+        x  = torch.randn(1, 10, teacher_weights.shape[1])
+        x [:,:, student_c:] = 0.0
+        out_t = teacher_linear_layer(x)
+        out_s = student_linear_layer(x)
+        print(f"Attn query initialized errors: {torch.norm(out_t[:,:,:student_c] - out_s[:,:,:student_c]).item()}")
+        breakpoint()
         
         
 

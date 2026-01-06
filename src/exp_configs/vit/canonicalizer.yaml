@@ -23,6 +23,7 @@ teacher_model:
     num_classes: 100
   
   canonicalizer_config:
+    use_equ_layers: true
     in_channels: 3
     out_channels: 3
     kernel_size: 3

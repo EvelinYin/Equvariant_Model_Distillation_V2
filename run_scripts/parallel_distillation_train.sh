@@ -3,14 +3,19 @@
 #   --config src/exp_configs/vit/parallel_distillation.yaml
 
 
-CUDA_VISIBLE_DEVICES=1,3,4,5,6,7 python main.py \
+# CUDA_VISIBLE_DEVICES=1,3,4,5,6,7 python main.py \
+CUDA_VISIBLE_DEVICES=1 python main.py \
   --config src/exp_configs/vit/parallel_distillation.yaml \
-  student_train.learning_rate=0.001 \
-  student_train.epochs=500 \
+  student_train.learning_rate=0.0003 \
+  student_train.scheduler_warmup_epochs=50 \
+  student_train.epochs=300 \
   student_model.vit_config.embed_dim=384 \
   parallel_layer_distillation.learnable_projection=true \
-  logging.wandb_name="half_channel_pca_learnable_projection_ViT" \
-  student_train.student_ckpt_path="/home/yin178/Equvariant_Model_Distillation_V2/outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init_pca.ckpt"
+  logging.wandb_name="half_channel_uniform_selection_learnable_projection_ViT" \
+  student_train.student_ckpt_path="/home/yin178/Equvariant_Model_Distillation_V2/outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init_uniform_selection.ckpt"
+  
+  # logging.wandb_name="half_channel_wanda_learnable_projection_ViT" \
+  # student_train.student_ckpt_path="/home/yin178/Equvariant_Model_Distillation_V2/outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init_wanda.ckpt"
 
 
 # CUDA_VISIBLE_DEVICES=1,3,4,5,6,7 python main.py \

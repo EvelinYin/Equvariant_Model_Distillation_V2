@@ -6,13 +6,14 @@ from src.equ_lib.groups.flipping_group import FlipGroup
 
 def test_canonicalization_forward():
     in_channels = 3
-    out_channels = 4
+    out_channels = 2
     batchsize = 1
     S = 32
 
     flipping_group = FlipGroup()
 
     layer = CanonicalizationNetwork(
+        use_equ_layers=False,
         group=flipping_group,
         in_channels=in_channels,
         out_channels=out_channels,
@@ -41,13 +42,14 @@ def test_canonicalization_forward():
    
 def test_canonicalization_backward():
     in_channels = 3
-    out_channels = 4
+    out_channels = 2
     batchsize = 1
     S = 32
 
     flipping_group = FlipGroup()
     
     layer = CanonicalizationNetwork(
+        use_equ_layers=False,
         group=flipping_group,
         in_channels=in_channels,
         out_channels=out_channels,

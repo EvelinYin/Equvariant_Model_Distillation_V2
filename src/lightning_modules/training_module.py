@@ -135,8 +135,8 @@ class LightningTrainingModule(BaseLightningModule):
         # pass
         x, y = batch
         
-        if self.canonicalizer is not None:
-            x, _, _ = self.canonicalizer(x)
+
+        
         
         self.compute_and_log_equ_tests(x, y)
         

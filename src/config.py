@@ -34,6 +34,7 @@ class DataConfig:
 
 @dataclass
 class CanonicalizerConfig:
+    use_equ_layers:  bool = True
     in_channels: int = 3
     out_channels: int = 1
     kernel_size: int = 3

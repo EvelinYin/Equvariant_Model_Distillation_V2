@@ -34,6 +34,8 @@ class BaseLightningModule(pl.LightningModule):
         
         self.cross_entropy_loss = nn.CrossEntropyLoss()
         
+        self.canonicalizer = None
+        
         # Metrics
         self.train_accuracy = Accuracy(task="multiclass", num_classes=num_classes)
         self.val_accuracy = Accuracy(task="multiclass", num_classes=num_classes)
@@ -90,15 +92,21 @@ class BaseLightningModule(pl.LightningModule):
         for g in range(self.group.elements().numel()):
             x = self.group.trans(x, g)
             
+
+            # Use canonicalizer if available
+            if self.canonicalizer is not None:
+                cano_x, _, _ = self.canonicalizer(x)
+                # tmp_cache_cano.append(x)
+            
             # Get predictions
             with torch.no_grad():
-                student_logits = self.model(x)
+                student_logits = self.model(cano_x if self.canonicalizer is not None else x)
             
             # this is for group attn pooling
             if isinstance(student_logits, tuple):
                 student_logits = student_logits[0]
             
-            all_logits.append(student_logits)
+            all_logits.append(student_logits.clone())
             
             # Update and log accuracy
             self.test_accuracy_list[str(g)](student_logits, y)

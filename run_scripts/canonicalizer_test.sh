@@ -1,0 +1,23 @@
+
+# CUDA_VISIBLE_DEVICES=0 python main.py \
+#   --config src/exp_configs/vit/canonicalizer.yaml \
+#   train_teacher=true \
+#   teacher_train.teacher_ckpt_path=/home/yin178/Equvariant_Model_Distillation_V2/outputs/cifar100/teacher/pretrained_ViT/non_equ_train_on_GT/canonicalizer/checkpoints/best-v1.ckpt \
+#   precision=64 \
+#   data.num_workers=0 \
+#   test_only=true \
+#   logging.wandb_mode="online" \
+
+
+CUDA_VISIBLE_DEVICES=0 python main.py \
+  --config src/exp_configs/vit/canonicalizer.yaml \
+  train_teacher=true \
+  teacher_train.teacher_ckpt_path=/home/yin178/Equvariant_Model_Distillation_V2/outputs/cifar100/teacher/pretrained_ViT/non_equ_train_on_GT/canonicalizer_no_equ_layers/checkpoints/best.ckpt \
+  precision=64 \
+  data.num_workers=0 \
+  teacher_model.canonicalizer_config.use_equ_layers=false \
+  teacher_model.canonicalizer_config.out_channels=2 \
+  test_only=true \
+  logging.wandb_mode="online" \
+
+# 

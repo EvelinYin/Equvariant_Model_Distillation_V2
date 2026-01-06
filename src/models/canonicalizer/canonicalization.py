@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 class CanonicalizationNetwork(torch.nn.Module):
     def __init__(
         self,
+        use_equ_layers,
         in_channels,
         out_channels,
         kernel_size,
@@ -18,6 +19,7 @@ class CanonicalizationNetwork(torch.nn.Module):
         super().__init__()
         self.group = group
         self.logit_over_groups = LogitOverGroups(
+            use_equ_layers=use_equ_layers,
             group=group,
             in_channels=in_channels,
             out_channels=out_channels,
