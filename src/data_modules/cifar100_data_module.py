@@ -3,6 +3,8 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from src.config import DataConfig
 from .base_data_module import BaseDataModule
+from torchvision.transforms import RandomErasing, RandAugment, ColorJitter, InterpolationMode
+
 
 class CIFAR100DataModule(BaseDataModule):
     """Lightning DataModule for CIFAR100"""
@@ -20,13 +22,27 @@ class CIFAR100DataModule(BaseDataModule):
         
         # Data augmentation for training
         self.train_transform = transforms.Compose([
-            transforms.Resize((224, 224)),
+            transforms.Resize((224, 224),
+                              interpolation=InterpolationMode.BICUBIC),
             transforms.RandomCrop(224, padding=4),
             transforms.RandomHorizontalFlip(),
+            ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.4),  # ColorJitter
+            RandAugment(
+            num_ops=2,  # timm typically uses 2 ops for 'rand' variant
+            magnitude=9,
+            interpolation=InterpolationMode.BICUBIC
+            ),
             transforms.ToTensor(),
             transforms.Normalize(
                 mean=mean,
                 std=std,
+            ),
+            RandomErasing(
+            p=0.25,
+            scale=(0.02, 0.33),  # Default timm values
+            ratio=(0.3, 3.3),    # Default timm values
+            value='random',      # 'pixel' mode in timm = 'random' in torchvision
+            inplace=False
             ),
         ])
         

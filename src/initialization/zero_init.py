@@ -10,6 +10,7 @@ from sklearn.decomposition import PCA
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from src.utils import clean_state_dict
 from src.models.ViT.pretrained_HF import PretrainedViT
 
 
@@ -196,6 +197,7 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
     Returns:
         Student model with weights initialized from teacher
     """
+    
      # Load teacher checkpoint
     teacher_ckpt = torch.load(teacher_ckpt_path, map_location='cpu')
     
@@ -205,8 +207,19 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
     else:
         teacher_state_dict = teacher_ckpt
     
-    # Load teacher weights
-    teacher_model.load_state_dict(teacher_state_dict)
+    
+
+    try:
+        # Load teacher weights
+        teacher_model.load_state_dict(teacher_state_dict)
+    except:
+        teacher_state_dict = clean_state_dict(teacher_state_dict)
+        errors, unexpected = teacher_model.load_state_dict(teacher_state_dict, strict=False)
+        if unexpected:
+            print(f"Ignored the following keys: {unexpected}")
+            print(f"Loaded teacher model weights from {teacher_ckpt_path}")
+    # # Load teacher weights
+    # teacher_model.load_state_dict(teacher_state_dict)
     
     # Copy teacher weights to student model, layer by layer
     student_state_dict = student_model.state_dict()
@@ -687,13 +700,16 @@ if __name__ == "__main__":
     # teacher_model = get_pretrained_teacher_model(model_name="google/vit-base-patch16-224-in21k", num_classes=100)
     
     ################Configs for intialization#######################
-    teacher_model = PretrainedViT(model_name="google/vit-base-patch16-224", num_classes=100)
+    # teacher_model = PretrainedViT(model_name="google/vit-base-patch16-224", num_classes=100)
+    teacher_model = PretrainedViT(model_name="WinKawaks/vit-small-patch16-224", num_classes=100)
+    
     # teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/ViT/teacher/pretrained_finetuned/epoch=07.ckpt"
-    teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/teacher/google/vit-base-patch16-224/best_fixed.ckpt"
+    # teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/teacher/google/vit-base-patch16-224/best_fixed.ckpt"
+    teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation_V2/outputs/cifar100/teacher/pretrained_ViT/non_equ_train_on_GT/teacher_vit_small_weight_selection/checkpoints/best.ckpt"
     precision = torch.float32
     embed_dim = 384
     # embed_dim = 768
-    scale_factor = 768 // embed_dim
+    scale_factor = 384 // embed_dim
     use_pca = False
     
     student_model = EquViT(  
@@ -723,7 +739,8 @@ if __name__ == "__main__":
     student_model_ckpt['state_dict'] = copied_state_ckpt
     # output_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init.ckpt"
     # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/double_channel/zero_init_v2.ckpt"
-    output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init_pca.ckpt"
+    # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init_pca.ckpt"
+    output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/double_channel/384_zero_init.ckpt"
     
     
     # output_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/student/initialization/nonequ_pos_embed_real_zero_init.ckpt"

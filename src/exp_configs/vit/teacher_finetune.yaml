@@ -29,7 +29,8 @@ teacher_model:
 teacher_train:
   epochs: 300
   learning_rate: 3e-4
-  teacher_ckpt_path: "/home/yin178/Equvariant_Model_Distillation_V2/outputs/CIFAR100/pretrained_ViT/teacher/google/vit-base-patch16-224/best_fixed.ckpt"
+  teacher_ckpt_path: ""
+  # teacher_ckpt_path: "/home/yin178/Equvariant_Model_Distillation_V2/outputs/CIFAR100/pretrained_ViT/teacher/google/vit-base-patch16-224/best_fixed.ckpt"
 
 
 

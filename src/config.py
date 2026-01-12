@@ -115,6 +115,15 @@ class TeacherTrainConfig:
     scheduler_warmup_epochs: int = 1  # Number of warmup epochs
     scheduler_step_size: int = 5  # Step size for step scheduler
     scheduler_gamma: float = 0.1  # Decay factor for exponential/step schedulers
+    weight_decay: float = 5e-2
+    
+    
+    mixup_alpha: Optional[float] = 0.8  # Alpha parameter for Mixup; if None, Mixup is not used
+    cutmix_alpha: Optional[float] = 1.0  # Alpha parameter for CutMix; if None, CutMix is not used
+    cutmix_minmax: Optional[list] = None  # Min/max ratio for CutMix; if None, default behavior is used
+    label_smoothing: float = 0.1  # Label smoothing factor; 0 means no label smoothing
+    
+    
     teacher_ckpt_path: Optional[str] = None  # Path to pre-trained teacher checkpoint
     # flip_test_images: bool = False  # If True, test on flipped images
     
@@ -130,8 +139,7 @@ class StudentTrainConfig:
     learning_rate: float = 5e-4
     temperature: float = 3.0
     alpha: float = 0.7  # Weight for soft loss
-    # weight_decay: float = 5e-2
-    weight_decay: float = 1e-1
+    weight_decay: float = 5e-2
     student_ckpt_path: Optional[str] = None  # Path to pre-trained student checkpoint
     # flip_test_images: bool = False  # If True, test on flipped images
     
@@ -140,6 +148,11 @@ class StudentTrainConfig:
     scheduler_warmup_epochs: int = 0  # Number of warmup epochs
     scheduler_step_size: int = 5  # Step size for step scheduler
     scheduler_gamma: float = 0.1  # Decay factor for exponential/step schedulers
+    
+    mixup_alpha: Optional[float] = 0.8  # Alpha parameter for Mixup; if None, Mixup is not used
+    cutmix_alpha: Optional[float] = 1.0  # Alpha parameter for CutMix; if None, CutMix is not used
+    cutmix_minmax: Optional[list] = None  # Min/max ratio for CutMix; if None, default behavior is used
+    label_smoothing: float = 0.1  # Label smoothing factor; 0 means no label smoothing
     
     print_log_every_n_steps: int = 50  # Print training log every n steps
     

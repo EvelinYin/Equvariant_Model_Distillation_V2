@@ -7,6 +7,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 
+from src.utils import clean_state_dict
 from src.models.ViT.pretrained_HF import PretrainedViT
 
 def conv_identity_weight(out_c, in_c, k=3):
@@ -35,18 +36,27 @@ def uniform_element_selection(wt, s_shape):
 
 
 
-def pretrained_vit_initialization(teacher_model, teacher_ckpt_path,device=torch.device("cpu")):
+def pretrained_vit_initialization(teacher_model, teacher_ckpt_path, student_model, device=torch.device("cpu")):
      # Load teacher checkpoint
-    teacher_ckpt = torch.load(teacher_ckpt_path, map_location='cpu')
+    if teacher_ckpt_path is not None:
+        teacher_ckpt = torch.load(teacher_ckpt_path, map_location='cpu')
     
-    # Handle both direct state_dict and nested checkpoints
-    if isinstance(teacher_ckpt, dict) and 'state_dict' in teacher_ckpt:
-        teacher_state_dict = teacher_ckpt['state_dict']
-    else:
-        teacher_state_dict = teacher_ckpt
-    
-    # Load teacher weights
-    teacher_model.load_state_dict(teacher_state_dict)
+        # Handle both direct state_dict and nested checkpoints
+        if isinstance(teacher_ckpt, dict) and 'state_dict' in teacher_ckpt:
+            teacher_state_dict = teacher_ckpt['state_dict']
+        else:
+            teacher_state_dict = teacher_ckpt
+
+        try:
+            # Load teacher weights
+            teacher_model.load_state_dict(teacher_state_dict, strict=False)
+        except:
+            cleaned_state_dict = clean_state_dict(teacher_state_dict)
+            errors, unexpected = teacher_model.load_state_dict(cleaned_state_dict, strict=False)
+            if unexpected:
+                print(f"Ignored the following keys: {unexpected}")
+                print(f"Loaded teacher model weights from {teacher_ckpt_path}")
+        
     
     teacher_model = teacher_model.model.model
     
@@ -78,7 +88,7 @@ def pretrained_vit_initialization(teacher_model, teacher_ckpt_path,device=torch.
     student_model.patch_embed.grouplayer.bias.data = torch.zeros_like(student_model.patch_embed.grouplayer.bias.data)
     student_model.patch_embed.grouplayer.bias.data = uniform_element_selection(teacher_model.vit.embeddings.patch_embeddings.projection.bias.data,
                                                                                 student_model.patch_embed.grouplayer.bias.data.shape)
-    
+    # breakpoint()
     # Transformer blocks
     for block_idx, block_big, block_small in zip(
         range(len(teacher_model.vit.encoder.layer)),
@@ -162,18 +172,29 @@ def pretrained_vit_initialization(teacher_model, teacher_ckpt_path,device=torch.
         teacher_model.vit.layernorm.bias.data, student_model.norm.norm.bias.data.shape)
     
     
-    # Classifier head
-    student_model.head.weight.data = uniform_element_selection(
-        teacher_model.classifier.weight.data, student_model.head.weight.data.shape)
-    student_model.head.bias.data = uniform_element_selection(
-        teacher_model.classifier.bias.data, student_model.head.bias.data.shape)
+    # # Classifier head
+    # student_model.head.weight.data = uniform_element_selection(
+    #     teacher_model.classifier.weight.data, student_model.head.weight.data.shape)
+    # student_model.head.bias.data = uniform_element_selection(
+    #     teacher_model.classifier.bias.data, student_model.head.bias.data.shape)
     
     
     return student_model.state_dict()
-    
 
+
+
+
+def init_vit_tiny(teacher_model, student_model, device=torch.device("cpu")):
+    teacher_state_dict = teacher_model.state_dict()
+    student_state_dict = student_model.state_dict()
     
+    weight_selection = {}
+    for key in student_state_dict.keys():
+        if "head" in key:
+            continue
+        weight_selection[key] = uniform_element_selection(teacher_state_dict[key], student_state_dict[key].shape)
     
+    return weight_selection
     
     
     
@@ -231,13 +252,18 @@ if __name__ == "__main__":
 
         
     ################Configs for intialization#######################
-    teacher_model = PretrainedViT(model_name="google/vit-base-patch16-224", num_classes=100)
+    # teacher_model = PretrainedViT(model_name="google/vit-base-patch16-224", num_classes=100)
+    teacher_model = PretrainedViT(model_name="WinKawaks/vit-small-patch16-224", num_classes=100)
+    
     # teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/ViT/teacher/pretrained_finetuned/epoch=07.ckpt"
-    teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/teacher/google/vit-base-patch16-224/best_fixed.ckpt"
+    # teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/teacher/google/vit-base-patch16-224/best_fixed.ckpt"
+    # teacher_ckpt_path = None
+    teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation_V2/outputs/cifar100/teacher/pretrained_ViT/non_equ_train_on_GT/teacher_vit_small_weight_selection/checkpoints/best.ckpt"
     precision = torch.float32
-    embed_dim = 384
+    # embed_dim = 192
+    embed_dim = 288
     # embed_dim = 768
-    scale_factor = 768 // embed_dim
+    scale_factor = 384 // embed_dim
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     
     student_model = EquViT(  
@@ -247,7 +273,7 @@ if __name__ == "__main__":
             num_classes=100,
             embed_dim=embed_dim,
             depth=12,
-            n_heads=12,
+            n_heads=3,
             mlp_ratio=4.0,
             pos_embed='SymmetricPosEmbed',
             # pos_embed='None-equ',
@@ -273,9 +299,15 @@ if __name__ == "__main__":
     # copied_state_ckpt = pretrained_vit_initialize_student_from_teacher(teacher_model, student_model, teacher_ckpt_path,
     #                                                                    calibration_loader=calibration_loader, scale_factor=scale_factor, \
     #                                                                     device=device)
+    
+    # student_model = PretrainedViT(model_name="WinKawaks/vit-tiny-patch16-224", num_classes=100)
+    # preserved_state_dict = student_model.state_dict().copy()
+    
 
-    copied_state_ckpt = pretrained_vit_initialization(teacher_model, teacher_ckpt_path,
+    copied_state_ckpt = pretrained_vit_initialization(teacher_model, teacher_ckpt_path, student_model,
                                 device=device)
+    
+    # copied_state_ckpt = init_vit_tiny(teacher_model, student_model, device=device)
     
     check_state_dicts_match(copied_state_ckpt, preserved_state_dict)
     
@@ -284,7 +316,10 @@ if __name__ == "__main__":
     student_model_ckpt['state_dict'] = copied_state_ckpt
     # output_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init.ckpt"
     # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/double_channel/zero_init_v2.ckpt"
-    output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init_wanda.ckpt"
+    # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/192_zero_init_uniform_selection.ckpt"
+    output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/75percent_ch/zero_init_uniform_selection.ckpt"
+    # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/vit_tiny_teacher/192_zero_init_uniform_selection.ckpt"
+    
     
     
     # output_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/student/initialization/nonequ_pos_embed_real_zero_init.ckpt"

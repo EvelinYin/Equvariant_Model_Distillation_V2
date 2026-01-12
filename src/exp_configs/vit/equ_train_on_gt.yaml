@@ -29,19 +29,18 @@ student_model:
     pos_embed: SymmetricPosEmbed
     attention_per_channel: true
     group_attn_channel_pooling: false
-    # group_attn_channel_pooling: true
 
 
 
-# =========================
-# Teacher model configuration
-# =========================
-teacher_model:
-  model_structure: pretrained_ViT
+# # =========================
+# # Teacher model configuration
+# # =========================
+# teacher_model:
+#   model_structure: pretrained_ViT
 
-  pretrained_vit_config:
-    model_name: google/vit-base-patch16-224
-    num_classes: 100
+#   pretrained_vit_config:
+#     model_name: google/vit-base-patch16-224
+#     num_classes: 100
 
 
 
@@ -50,14 +49,13 @@ teacher_model:
 # Student training configuration
 # =========================
 student_train:
-  strategy: parallel_distillation
+  strategy: equ_train_on_GT
   group: FlipGroup   # FlipGroup or RotationGroup
   epochs: 150
   learning_rate: 2e-5
   temperature: 3.0
-  alpha: 0.7
 
-  student_ckpt_path: "./outputs/CIFAR100/pretrained_ViT/student/initialization/double_channel/zero_init_v2.ckpt"
+  student_ckpt_path: ""
   # train_equ_w_gt: false
 
   scheduler_type: cosine
@@ -72,8 +70,7 @@ student_train:
 # Teacher checkpoint
 # =========================
 teacher_train:
-  teacher_ckpt_path: "/home/yin178/Equvariant_Model_Distillation_V2/outputs/cifar100/teacher/pretrained_ViT/non_equ_train_on_GT/teacher_vit_small_weight_selection/checkpoints/best.ckpt"
-  # teacher_ckpt_path: "/home/yin178/Equvariant_Model_Distillation_V2/outputs/CIFAR100/pretrained_ViT/teacher/google/vit-base-patch16-224/best_fixed.ckpt"
+  teacher_ckpt_path: ""
 
 
 
@@ -102,7 +99,7 @@ logging:
   entity: null
   log_frequency: 50
   outputs_dir: ./outputs
-  wandb_name: pretrained_ViT_parallel_distillation
+  wandb_name: equ_naive_distillation
   wandb_mode: online
 
 

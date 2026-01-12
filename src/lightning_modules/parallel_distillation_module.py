@@ -134,16 +134,22 @@ class StudentParallelLayerLightningModule(BaseLightningModule):
     
     
     
-    def _get_multi_mse_loss(self, student_features, teacher_features, layer_idx, out_proj_idx):
+    def _get_multi_mse_loss(self, student_features, teacher_features, layer_idx, out_proj_idx, y):
         # if self.train_cfg.current_training_layer == "all":
         
         if isinstance(teacher_features, tuple) and teacher_features[1] is None:
             teacher_features = teacher_features[0]
         
+        
+        all_losses = []
+        relative_errors = []
+        
+        
         # breakpoint()
         if self.model.group_attn_channel_pooling:
             if "head" in layer_idx:
                     student_features, student_logits = student_features
+                    
             elif student_features.ndim == 3:
                 student_features = torch.cat([student_features[:, :1, :], student_features[:, 2:, :]], dim=1)
 
@@ -151,9 +157,13 @@ class StudentParallelLayerLightningModule(BaseLightningModule):
             teacher_features = teacher_features.permute(0, 3, 1, 2)
         
         
+        if "head" in layer_idx:
+            # For cross_entropy loss
+            cross_entropy_loss = self.cross_entropy_loss(student_features, y)
+            all_losses.append(cross_entropy_loss)
         
-        all_losses = []
-        relative_errors = []
+        
+
       
 
         if isinstance(student_features, list) or isinstance(student_features, tuple):
@@ -189,7 +199,7 @@ class StudentParallelLayerLightningModule(BaseLightningModule):
                 
                 relative_errors.append(self.compute_relative_error(teacher_features.detach(), projected_s.detach()))
                 # relative_errors.append(self.compute_relative_error(flipped_t.detach(), projected_s2.detach()))
-        
+
 
             return torch.stack(all_losses), relative_errors
 
@@ -210,15 +220,45 @@ class StudentParallelLayerLightningModule(BaseLightningModule):
             student_features = self._get_layer_features(self.model, x, layer_s, True)
             
             # Compute layer-wise loss (MSE between teacher and student features)
-            layer_loss, relative_error = self._get_multi_mse_loss(student_features, teacher_features, layer_s, idx)
+            layer_loss, relative_error = self._get_multi_mse_loss(student_features, teacher_features, layer_s, idx, y)
             # layer_loss = layer_loss.mean()
             relative_error = sum(relative_error)/len(relative_error)
             
             # layer_losses.append(layer_loss)
             layer_losses.extend(layer_loss)
             relative_errors.append(relative_error)
+            
+
         
         self.log("train/layer_mse_loss", sum(layer_losses) / len(layer_losses), on_epoch=True, on_step=False)
+        
+
+        
+        
+                # # Update and log accuracy
+        with torch.no_grad():
+            student_logits = self.model(x)
+            if self.model.group_attn_channel_pooling:
+                student_logits = student_logits[0]
+                
+            self.train_accuracy(student_logits.argmax(dim=1), y.argmax(dim=1))
+            self.log("train/accuracy", self.train_accuracy, prog_bar=True, on_epoch=True, on_step=False)
+            
+
+        
+        if (
+            self.global_rank == 0
+            and self.global_step % self.train_config.print_log_every_n_steps == 0
+        ):
+            print(
+                f"train step {self.global_step}; "
+                f"loss = {(sum(layer_losses) / len(layer_losses)):.6f}; "
+                f" relative_error = {relative_error:.6f}; "
+            )
+        
+        
+        
+
 
         
         # Log losses
@@ -232,24 +272,7 @@ class StudentParallelLayerLightningModule(BaseLightningModule):
             self.log("lr/learning_rate", param_group["lr"], on_epoch=True, on_step=False)
             break
         
-        # # Update and log accuracy
-        with torch.no_grad():
-            student_logits = self.model(x)
-            if self.model.group_attn_channel_pooling:
-                student_logits = student_logits[0]
-                
-            self.train_accuracy(student_logits, y)
-            self.log("train/accuracy", self.train_accuracy, prog_bar=True, on_epoch=True, on_step=False)
-        
-        if (
-            self.global_rank == 0
-            and self.global_step % self.train_config.print_log_every_n_steps == 0
-        ):
-            print(
-                f"train step {self.global_step}; "
-                f"loss = {(sum(layer_losses) / len(layer_losses)):.6f}; "
-                f" relative_error = {relative_error:.6f}; "
-            )
+
             
         return sum(layer_losses) / len(layer_losses)
     
@@ -257,6 +280,7 @@ class StudentParallelLayerLightningModule(BaseLightningModule):
     def training_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
         # 1. Compute loss and metrics
         x, y = batch
+        x, y = self.mixup_fn(x, y)
         loss = self.compute_and_log_loss(x, y)
 
         return loss
@@ -277,7 +301,7 @@ class StudentParallelLayerLightningModule(BaseLightningModule):
                     
 
                     if teacher_features is not None and student_features is not None:
-                        layer_mse, relative_error = self._get_multi_mse_loss(student_features, teacher_features, layer_s, idx)
+                        layer_mse, relative_error = self._get_multi_mse_loss(student_features, teacher_features, layer_s, idx, y)
                         layer_losses.extend(layer_mse)
                         relative_errors.append(sum(relative_error) / len(relative_error))
  

@@ -10,6 +10,9 @@ from src.config import TeacherTrainConfig, StudentTrainConfig
 from src.equ_lib.groups import get_group
 from lightning.pytorch.utilities import grad_norm
 
+from torch.distributions.beta import Beta
+from timm.data.mixup import Mixup
+
 
 class BaseLightningModule(pl.LightningModule):
     """
@@ -24,6 +27,10 @@ class BaseLightningModule(pl.LightningModule):
         model: torch.nn.Module,
         train_config: Union[TeacherTrainConfig, StudentTrainConfig],
         num_classes: int = 10,
+        mixup_alpha: Optional[float] = 0.8,
+        cutmix_alpha: Optional[float] = 1.0,
+        cutmix_minmax: Optional[List[float]] = None,
+        label_smoothing: float = 0.1,
         **kwargs
     ):
         super().__init__()
@@ -35,6 +42,16 @@ class BaseLightningModule(pl.LightningModule):
         self.cross_entropy_loss = nn.CrossEntropyLoss()
         
         self.canonicalizer = None
+        
+        
+        # # mixup and cutmix
+        # self.mixup_alpha = mixup_alpha
+        # self.cutmix_alpha = cutmix_alpha
+        # self.label_smoothing = label_smoothing
+        self.mixup_fn = Mixup(
+            mixup_alpha=mixup_alpha, cutmix_alpha=cutmix_alpha, cutmix_minmax=cutmix_minmax,
+            prob=1.0, switch_prob=0.5, mode='batch',
+            label_smoothing=label_smoothing, num_classes=num_classes)
         
         # Metrics
         self.train_accuracy = Accuracy(task="multiclass", num_classes=num_classes)
@@ -53,6 +70,8 @@ class BaseLightningModule(pl.LightningModule):
     
         
         self.save_hyperparameters()
+    
+    
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -74,6 +93,7 @@ class BaseLightningModule(pl.LightningModule):
     def training_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
         # 1. Compute loss and metrics
         x, y = batch
+        x, y = self.mixup_fn(x, y)
         output = self.forward(x)
         loss = self.compute_and_log_loss(output, y)
 
@@ -132,11 +152,11 @@ class BaseLightningModule(pl.LightningModule):
     # --- Optimizer Configuration ---
     def configure_optimizers(self):
         """Configure optimizer and learning rate scheduler"""
-        optimizer = torch.optim.Adam(
+        optimizer = torch.optim.AdamW(
             self.model.parameters(),
             lr=self.train_config.learning_rate,
-            eps=1e-4
-            # weight_decay=self.train_config.weight_decay
+            eps=1e-4,
+            weight_decay=self.train_config.weight_decay
         )
         
         # Get total number of steps
@@ -166,7 +186,7 @@ class BaseLightningModule(pl.LightningModule):
             scheduler = CosineAnnealingLR(
                 optimizer,
                 T_max=total_epochs - warmup_epochs,
-                eta_min=1e-6
+                eta_min=5e-6
             )
 
             

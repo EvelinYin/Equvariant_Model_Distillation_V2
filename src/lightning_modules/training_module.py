@@ -71,7 +71,8 @@ class LightningTrainingModule(BaseLightningModule):
             break
         
         # Update and log accuracy
-        self.train_accuracy(prediction, y)
+        self.train_accuracy(prediction.argmax(dim=1), y.argmax(dim=1))
+        
         self.log("train/accuracy", self.train_accuracy, on_epoch=True, on_step=False)
         
         return loss
@@ -80,6 +81,7 @@ class LightningTrainingModule(BaseLightningModule):
     def training_step(self,batch, batch_idx):
         """Training step with knowledge distillation"""
         x, y = batch
+        x, y = self.mixup_fn(x, y)
         
         if self.canonicalizer is not None:
             x, _, _ = self.canonicalizer(x)

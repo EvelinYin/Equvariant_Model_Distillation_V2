@@ -77,7 +77,7 @@ def train_teacher(config: Config, data_module: pl.LightningDataModule,
     
     early_stop_callback = EarlyStopping(
         monitor="val/accuracy",
-        patience=10,
+        patience=50,
         mode="max",
         verbose=True,
     )
@@ -197,7 +197,7 @@ def train_student(config: Config, data_module: pl.LightningDataModule,
     
     early_stop_callback = EarlyStopping(
         monitor="val/accuracy",
-        patience=10,
+        patience=50,
         mode="max",
         verbose=True,
     )
@@ -271,7 +271,8 @@ def train(config: Config = None):
     if not config.train_teacher:
         model = get_model(name=config.student_model.model_structure, config=config.student_model, group=config.student_train.group)
         teacher_model = get_model(name=config.teacher_model.model_structure, config=config.teacher_model)
-        teacher_model = load_model_checkpoint(teacher_model, config.teacher_train.teacher_ckpt_path)
+        if config.teacher_train.teacher_ckpt_path is not None and config.teacher_train.teacher_ckpt_path != '':
+            teacher_model = load_model_checkpoint(teacher_model, config.teacher_train.teacher_ckpt_path)
         train_student(config, student_model=model, teacher_model=teacher_model, data_module=data_module)
     
     else:
