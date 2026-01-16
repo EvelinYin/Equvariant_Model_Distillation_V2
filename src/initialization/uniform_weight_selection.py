@@ -9,6 +9,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from src.utils import clean_state_dict
 from src.models.ViT.pretrained_HF import PretrainedViT
+from src.equ_lib.groups.rot90_group import Rot90Group
+from src.equ_lib.groups.flipping_group import FlipGroup
 
 def conv_identity_weight(out_c, in_c, k=3):
     w = torch.zeros(out_c, in_c, k, k)
@@ -266,6 +268,7 @@ if __name__ == "__main__":
     scale_factor = 384 // embed_dim
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     
+    group = Rot90Group()
     student_model = EquViT(  
             img_size=224,
             patch_size=16,
@@ -278,7 +281,8 @@ if __name__ == "__main__":
             pos_embed='SymmetricPosEmbed',
             # pos_embed='None-equ',
             attention_per_channel=True, 
-            linear_pooling=False
+            linear_pooling=False,
+            group=group
             )
 
     
@@ -317,7 +321,7 @@ if __name__ == "__main__":
     # output_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init.ckpt"
     # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/double_channel/zero_init_v2.ckpt"
     # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/192_zero_init_uniform_selection.ckpt"
-    output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/75percent_ch/zero_init_uniform_selection.ckpt"
+    output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/rot90/75percent_ch/zero_init_uniform_selection.ckpt"
     # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/vit_tiny_teacher/192_zero_init_uniform_selection.ckpt"
     
     
