@@ -102,7 +102,7 @@ class EquAttentionPerChannel(nn.Module):
         k = self.transpose_for_scores(k)
         v = self.transpose_for_scores(v)
         
-        
+
         head_dim = C // self.group.order // self.num_heads
         
         q = q * self.scale

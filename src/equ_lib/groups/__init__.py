@@ -1,7 +1,9 @@
 from src.equ_lib.groups.flipping_group import FlipGroup
+from src.equ_lib.groups.rot90_group import Rot90Group
 
 __GROUPS__ = {
     "FlipGroup": FlipGroup,
+    "Rot90Group": Rot90Group
 }
 
 

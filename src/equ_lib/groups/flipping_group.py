@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import math
 from .base_group import GroupBase
+from src.equ_lib.layers.equ_pos_embedding import FlippingSymmetricPosEmbed
 
 class FlipGroup(GroupBase):
     """
@@ -114,6 +115,10 @@ class FlipGroup(GroupBase):
         elif g == 1:
             C, G, H, W = x.shape
             return torch.roll(x, shifts=1, dims=1)
+    
+    def get_pos_embd(self, num_patches, embed_dim, group_attn_channel_pooling):
+        return FlippingSymmetricPosEmbed(num_patches=num_patches, embed_dim=embed_dim, group_attn_channel_pooling=group_attn_channel_pooling)
+    
 
     def get_canonicalization_ref(self, device, dtype):
         # 0 -> Identity, 1 -> Flip

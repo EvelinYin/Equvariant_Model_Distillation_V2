@@ -13,15 +13,14 @@
 
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python main.py \
   --config src/exp_configs/vit/equ_train_on_gt.yaml \
-  logging.wandb_name="288_h5_finetune_ViT_equ_train_on_gt" \
-  student_train.learning_rate=1e-6 \
-  student_train.scheduler_warmup_epochs=50 \
-  student_train.epochs=300 \
-  data.batch_size=128 \
+  logging.wandb_name="288_finetune_ViT_equ_train_on_gt_test" \
   student_model.vit_config.embed_dim=288 \
-  student_model.vit_config.n_heads=5 \
+  student_model.vit_config.n_heads=3 \
   data.batch_size=128 \
-  student_train.student_ckpt_path="/home/yin178/Equvariant_Model_Distillation_V2/outputs/cifar100/student/equ_vit/parallel_distillation/288_parallel_half_channel_uniform_selection_learnable_projection_ViT/checkpoints/best-v3.ckpt" \
+  precision=64 \
+  data.num_workers=0 \
+  test_only=true \
+  student_train.student_ckpt_path="/home/yin178/Equvariant_Model_Distillation_V2/outputs/cifar100/student/equ_vit/equ_train_on_GT/288_finetune_ViT_equ_train_on_gt/checkpoints/best-v2.ckpt" \
 
 
 

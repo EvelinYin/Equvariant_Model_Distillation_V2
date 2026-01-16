@@ -57,7 +57,7 @@ class EquViT(nn.Module):
         n_patches = self.patch_embed.n_patches
         
         if pos_embed == 'SymmetricPosEmbed':
-            self.add_pos_embed = FlippingSymmetricPosEmbed(num_patches=n_patches, embed_dim=embed_dim, group_attn_channel_pooling=group_attn_channel_pooling)
+            self.add_pos_embed = group.get_pos_embd(num_patches=n_patches, embed_dim=embed_dim, group_attn_channel_pooling=group_attn_channel_pooling)
         elif pos_embed == 'None-equ':
             self.non_equ_pos_embed = nn.Parameter(torch.empty(1, n_patches+1, embed_dim*2).normal_(std=0.02))
             self.add_pos_embed = lambda x: x + self.non_equ_pos_embed
@@ -120,9 +120,9 @@ class EquViT(nn.Module):
             group_cls_token = group_cls_token.expand(B, -1, -1)
             x = torch.cat([group_cls_token, x], dim=1)
         
-        
         ### Add cls token
-        cls_token = torch.cat([self.cls_token, self.cls_token], dim=-1)  # (1, 1, 2*C)
+        # cls_token = torch.cat([self.cls_token, self.cls_token], dim=-1)  # (1, 1, 2*C)
+        cls_token = torch.cat([self.cls_token] * self.group.order.item(), dim=-1)  # (1, 1, group_order*C)
         cls_token = cls_token.expand(B, -1, -1)
         x = torch.cat([cls_token, x], dim=1)
         
@@ -147,6 +147,7 @@ class EquViT(nn.Module):
         x = x[:, 0]  # CLS token, (B,2C)
         
         if self.group_attn_channel_pooling:
+            breakpoint()
             B, C2 = x.shape
             C2 = x.shape[1]
             # group_cls_token = self.group_cls_token.expand(B, -1)
@@ -168,7 +169,7 @@ class EquViT(nn.Module):
         
         # breakpoint()
         if not self.group_attn_channel_pooling and not self.linear_pooling:
-            x = x.view(x.size(0), 2, -1).mean(dim=1) # B,C
+            x = x.view(x.size(0), self.group.order, -1).mean(dim=1) # B,C
             # x = x.view(x.size(0), 2, -1).sum(dim=1)[0] # B,C
         # x = x.view(x.size(0), 2, -1).max(dim=1)[0] # B,C
         

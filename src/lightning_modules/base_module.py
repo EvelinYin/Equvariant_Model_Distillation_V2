@@ -186,7 +186,7 @@ class BaseLightningModule(pl.LightningModule):
             scheduler = CosineAnnealingLR(
                 optimizer,
                 T_max=total_epochs - warmup_epochs,
-                eta_min=5e-6
+                eta_min=1e-7
             )
 
             

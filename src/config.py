@@ -104,7 +104,7 @@ class TeacherTrainConfig:
     learning_rate: float = 3e-4
     
     # This is for testing steps
-    group: str = "FlipGroup"  # "FlipGroup" or "RotationGroup"
+    group: str = "Rot90Group"  # "FlipGroup" or "Rot90Group"
     
     use_canonicalizer: bool = False # Whether to use canonicalizer during training
     
@@ -133,7 +133,7 @@ class StudentTrainConfig:
     # strategy: 'parallel_distillation' or "equ_naive_distillation" 
     # or 'equ_train_on_GT'  or 'non_equ_train_on_GT'
     strategy: str = 'parallel_distillation' 
-    group: str = "FlipGroup"  # "FlipGroup" or "RotationGroup"
+    group: str = "Rot90Group"  # "FlipGroup" or "RotationGroup"
     
     epochs: int = 15
     learning_rate: float = 5e-4
@@ -155,7 +155,7 @@ class StudentTrainConfig:
     label_smoothing: float = 0.1  # Label smoothing factor; 0 means no label smoothing
     
     print_log_every_n_steps: int = 50  # Print training log every n steps
-    
+    resume_training: bool = False
 
 @dataclass
 class LoggingConfig:

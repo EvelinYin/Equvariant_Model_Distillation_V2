@@ -42,7 +42,8 @@ def train_teacher(config: Config, data_module: pl.LightningDataModule,
     )
     
     # set checkpoints directory
-    config.logging.outputs_dir = f'./outputs/{config.data.dataset_name}/' \
+    config.logging.outputs_dir = f'./outputs/{config.teacher_train.group}/' \
+                                    + f'{config.data.dataset_name}/' \
                                     + 'teacher/' \
                                     + f'{config.teacher_model.model_structure}/' \
                                     + f'{config.teacher_train.strategy}/' \
@@ -142,10 +143,26 @@ def train_student(config: Config, data_module: pl.LightningDataModule,
                   student_model: nn.Module, teacher_model: nn.Module = None,
                   ):
     """Train student model with knowledge distillation using Lightning Trainer"""
-
     # Load pre-trained student checkpoint if provided
     student_ckpt_path = config.student_train.student_ckpt_path
     if student_ckpt_path is not None and student_ckpt_path != '':
+        # checkpoint = torch.load(student_ckpt_path, map_location='cpu')
+        # if 'state_dict' in checkpoint:
+        #     # This is a Lightning checkpoint - filter the state_dict
+        #     state_dict = checkpoint['state_dict']
+            
+        #     # Filter to only student model weights
+        #     student_state_dict = {
+        #         k.replace('model.', '', 1): v  # Remove 'model.' prefix if it exists
+        #         for k, v in state_dict.items() 
+        #         if not k.startswith('teacher.')
+        #     }
+            
+        #     # Load into student model
+        #     student_model.load_state_dict(student_state_dict, strict=False)
+        #     print(f"Loaded student model weights from {student_ckpt_path}")
+        # else:
+            # This is a regular model checkpoint
         student_model = load_model_checkpoint(student_model, student_ckpt_path)
 
     
@@ -162,7 +179,8 @@ def train_student(config: Config, data_module: pl.LightningDataModule,
     )
     
     # set checkpoints directory
-    config.logging.outputs_dir = f'./outputs/{config.data.dataset_name}/' \
+    config.logging.outputs_dir = f'./outputs/{config.student_train.group}' \
+                                    + f'{config.data.dataset_name}/' \
                                     + 'student/' \
                                     + f'{config.student_model.model_structure}/' \
                                     + f'{config.student_train.strategy}/' \
@@ -227,9 +245,8 @@ def train_student(config: Config, data_module: pl.LightningDataModule,
         
     
     else:
-    
         # Train
-        if (student_ckpt_path is not None and student_ckpt_path != '' ) \
+        if (student_ckpt_path is not None and student_ckpt_path != '' and config.student_train.resume_training) \
             and 'pytorch-lightning_version' in torch.load(student_ckpt_path, map_location='cpu'):
             print("Resuming Trainer state (Optimizer, Scheduler, Epoch)...")
             # Passing ckpt_path here restores the FULL training state
