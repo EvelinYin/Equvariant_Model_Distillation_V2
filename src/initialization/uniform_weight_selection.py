@@ -38,7 +38,7 @@ def uniform_element_selection(wt, s_shape):
 
 
 
-def pretrained_vit_initialization(teacher_model, teacher_ckpt_path, student_model, device=torch.device("cpu")):
+def pretrained_vit_initialization(teacher_model, teacher_ckpt_path, student_model, group, device=torch.device("cpu")):
      # Load teacher checkpoint
     if teacher_ckpt_path is not None:
         teacher_ckpt = torch.load(teacher_ckpt_path, map_location='cpu')
@@ -67,6 +67,8 @@ def pretrained_vit_initialization(teacher_model, teacher_ckpt_path, student_mode
     student_state_dict = student_model.state_dict()
     # new = student_state_dict.copy()
     
+    num_elements = group.order()
+    
     
     # cls_token 
     student_model.cls_token.data = uniform_element_selection(teacher_model.vit.embeddings.cls_token.data, student_state_dict['cls_token'].shape)
@@ -77,10 +79,10 @@ def pretrained_vit_initialization(teacher_model, teacher_ckpt_path, student_mode
     student_model.patch_embed.liftinglayer.kernel.weight.data = conv_identity_weight(H,W,k=3)
     student_model.patch_embed.liftinglayer.bias.data.zero_()
     
-    
+
      # Patch embedding group conv layer ()
-    C_big = teacher_model.vit.embeddings.patch_embeddings.projection.out_channels
-    C_small = C_big // scale_factor
+    # C_big = teacher_model.vit.embeddings.patch_embeddings.projection.out_channels
+    # C_small = C_big // scale_factor
     
     W = teacher_model.vit.embeddings.patch_embeddings.projection.weight.data
     W = uniform_element_selection(W, student_model.patch_embed.grouplayer.kernel.weight.data[:,:,0].shape)
@@ -99,19 +101,23 @@ def pretrained_vit_initialization(teacher_model, teacher_ckpt_path, student_mode
     ):
         
         
-    
-        block_small.attn.shared_q.learnable_weights[1].data.zero_()
-        block_small.attn.shared_k.learnable_weights[1].data.zero_()
-        block_small.attn.shared_v.learnable_weights[1].data.zero_()
+        for g_i in range(num_elements):
+            block_small.attn.shared_q.learnable_weights[g_i].data.zero_()
+            block_small.attn.shared_k.learnable_weights[g_i].data.zero_()
+            block_small.attn.shared_v.learnable_weights[g_i].data.zero_()
+            block_small.attn.proj.learnable_weights[g_i].data.zero_()
+            block_small.mlp.fc1.learnable_weights[g_i].data.zero_()
+            block_small.mlp.fc2.learnable_weights[g_i].data.zero_()
+            
+            
+            
         block_small.attn.shared_q.learnable_bias.data.zero_()
         block_small.attn.shared_k.learnable_bias.data.zero_()
         block_small.attn.shared_v.learnable_bias.data.zero_()
         
-        block_small.attn.proj.learnable_weights[1].data.zero_()
         block_small.attn.proj.learnable_bias.data.zero_()
         
-        block_small.mlp.fc1.learnable_weights[1].data.zero_()
-        block_small.mlp.fc2.learnable_weights[1].data.zero_()
+
         block_small.mlp.fc1.learnable_bias.data.zero_()
         block_small.mlp.fc2.learnable_bias.data.zero_()
     
@@ -308,7 +314,7 @@ if __name__ == "__main__":
     # preserved_state_dict = student_model.state_dict().copy()
     
 
-    copied_state_ckpt = pretrained_vit_initialization(teacher_model, teacher_ckpt_path, student_model,
+    copied_state_ckpt = pretrained_vit_initialization(teacher_model, teacher_ckpt_path, student_model, group=group,
                                 device=device)
     
     # copied_state_ckpt = init_vit_tiny(teacher_model, student_model, device=device)

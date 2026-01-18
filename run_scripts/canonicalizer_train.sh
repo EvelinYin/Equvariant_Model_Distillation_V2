@@ -1,10 +1,10 @@
 
-CUDA_VISIBLE_DEVICES=0,1,3,4 python main.py \
+CUDA_VISIBLE_DEVICES=1,2,3,4 python main.py \
   --config src/exp_configs/vit/canonicalizer.yaml \
   teacher_model.pretrained_vit_config.model_name="WinKawaks/vit-small-patch16-224" \
   train_teacher=true \
   teacher_train.epochs=300 \
-  teacher_train.learning_rate=5e-4 \
+  teacher_train.learning_rate=1e-4 \
   teacher_train.scheduler_warmup_epochs=50 \
   teacher_train.weight_decay=5e-2 \
   data.batch_size=32 \

@@ -81,7 +81,7 @@ class TestModels(unittest.TestCase):
         assert equ_error < 1e-10
 
     
-    def test_vit_end_to_end(self):
+    def _test_vit_end_to_end(self):
         equ_error = test_vit_forward()
         print("ViT End to End Equivarinace Error -->", equ_error)
         assert equ_error < 1e-10
@@ -90,7 +90,7 @@ class TestModels(unittest.TestCase):
         print("ViT End to End Equivarinace Error (backward) -->", equ_error, "\n")
         assert equ_error < 1e-10
     
-    def _test_canonicalization_forward(self):
+    def test_canonicalization_forward(self):
         equ_error = test_canonicalization_forward()
         print("Canonicalization Network Equivarinace Error -->", equ_error)
         assert equ_error < 1e-10

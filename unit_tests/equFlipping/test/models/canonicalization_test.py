@@ -13,7 +13,7 @@ def test_canonicalization_forward():
     flipping_group = FlipGroup()
 
     layer = CanonicalizationNetwork(
-        use_equ_layers=False,
+        use_equ_layers=True,
         group=flipping_group,
         in_channels=in_channels,
         out_channels=out_channels,
@@ -49,7 +49,7 @@ def test_canonicalization_backward():
     flipping_group = FlipGroup()
     
     layer = CanonicalizationNetwork(
-        use_equ_layers=False,
+        use_equ_layers=True,
         group=flipping_group,
         in_channels=in_channels,
         out_channels=out_channels,

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import math
+import kornia as K
 from .base_group import GroupBase
 from src.equ_lib.layers.equ_pos_embedding import Rotation90SymmetricPosEmbed
 
@@ -135,25 +136,15 @@ class Rot90Group(GroupBase):
     
 
     def get_canonicalization_ref(self, device, dtype):
-        # 0 -> Identity, 1 -> 90°, 2 -> 180°, 3 -> 270°
-        return torch.tensor([0., 1., 2., 3.], device=device, dtype=dtype)
+        return torch.linspace(0.0, 360.0, self.order + 1)[:self.order].to(device=device, dtype=dtype)  # [0, 90, 180, 270]
     
     def get_canonicalized_images(self, images, indicator):
         """
         Canonicalize images by applying the inverse rotation.
         indicator: which rotation to undo (0, 1, 2, 3)
         """
-        B = images.shape[0]
-        canonicalized_images = torch.zeros_like(images)
-        
-        for i in range(B):
-            g = int(indicator[i].item())
-            # Apply inverse rotation
-            inv_g = int(self.inverse(torch.tensor(g)).item())
-            canonicalized_images[i] = self.trans(images[i], inv_g)
-        
-        indicator = indicator.view(-1, 1, 1, 1)
-        return canonicalized_images, indicator
+        # return torch.rot90(images, k=int(-indicator // 90), dims=[2, 3]), indicator.view(-1, 1, 1, 1)
+        return K.geometry.rotate(images, -indicator), indicator.view(-1, 1, 1, 1)
 
     def normalize_group_elements(self, h):
         # Normalize to [-1, 1] range

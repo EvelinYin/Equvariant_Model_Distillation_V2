@@ -12,6 +12,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from src.utils import clean_state_dict
 from src.models.ViT.pretrained_HF import PretrainedViT
+from src.equ_lib.groups.rot90_group import Rot90Group
+from src.equ_lib.groups.flipping_group import FlipGroup
 
 
 
@@ -310,7 +312,7 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
 
         
         elif 'attn' in name:
-            if ('q.learnable_weights.1' in name or 'k.learnable_weights.1' in name or 'v.learnable_weights.1' in name or 'proj.learnable_weights.1' in name) \
+            if ('q.learnable_weights.0' not in name or 'k.learnable_weights.0' not in name or 'v.learnable_weights.0' not in name or 'proj.learnable_weights.0' not in name) \
                and 'learnable_bias' not in name:
                 copied_state_dict[name] = torch.zeros_like(param)
                 # copied_state_dict[name] += 1e-5
@@ -402,7 +404,7 @@ def pretrained_vit_initialize_student_from_teacher(teacher_model: nn.Module, stu
                 breakpoint()
                 
         elif 'mlp' in name:
-            if '.learnable_weights.1' in name and 'learnable_bias' not in name:
+            if '.learnable_weights.0' not in name and 'learnable_bias' not in name:
                 copied_state_dict[name] = torch.zeros_like(param)
                 # copied_state_dict[name] += 1e-5
             elif '.learnable_weights.0' in name or 'learnable_bias' in name:
@@ -707,6 +709,7 @@ if __name__ == "__main__":
     # teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/teacher/google/vit-base-patch16-224/best_fixed.ckpt"
     teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation_V2/outputs/cifar100/teacher/pretrained_ViT/non_equ_train_on_GT/teacher_vit_small_weight_selection/checkpoints/best.ckpt"
     precision = torch.float32
+    group = Rot90Group()
     embed_dim = 384
     # embed_dim = 768
     scale_factor = 384 // embed_dim
@@ -719,12 +722,13 @@ if __name__ == "__main__":
             num_classes=100,
             embed_dim=embed_dim,
             depth=12,
-            n_heads=12,
+            n_heads=6,
             mlp_ratio=4.0,
             pos_embed='SymmetricPosEmbed',
             # pos_embed='None-equ',
             attention_per_channel=True, 
-            linear_pooling=False
+            linear_pooling=False,
+            group=group
             )
 
     
@@ -740,7 +744,7 @@ if __name__ == "__main__":
     # output_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init.ckpt"
     # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/double_channel/zero_init_v2.ckpt"
     # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init_pca.ckpt"
-    output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/double_channel/384_zero_init.ckpt"
+    output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/rot90/double_channel/384_zero_init.ckpt"
     
     
     # output_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/student/initialization/nonequ_pos_embed_real_zero_init.ckpt"
