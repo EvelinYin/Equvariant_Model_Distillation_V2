@@ -67,7 +67,7 @@ def pretrained_vit_initialization(teacher_model, teacher_ckpt_path, student_mode
     student_state_dict = student_model.state_dict()
     # new = student_state_dict.copy()
     
-    num_elements = group.order()
+    num_elements = group.order
     
     
     # cls_token 

@@ -18,7 +18,8 @@
 #   parallel_layer_distillation.learnable_projection=false \
 #   logging.wandb_name="192_parallel_half_channel_uniform_selection_learnable_projection_ViT" \
 #   student_train.student_ckpt_path="/home/yin178/Equvariant_Model_Distillation_V2/outputs/CIFAR100/pretrained_ViT/student/initialization/double_channel/384_zero_init.ckpt"
-
+export TORCH_NCCL_BLOCKING_WAIT=1
+export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 
 
 CUDA_VISIBLE_DEVICES=0,1,3,4 python main.py \
@@ -26,7 +27,7 @@ CUDA_VISIBLE_DEVICES=0,1,3,4 python main.py \
   teacher_model.pretrained_vit_config.model_name='WinKawaks/vit-small-patch16-224' \
   teacher_train.teacher_ckpt_path=/home/yin178/Equvariant_Model_Distillation_V2/outputs/cifar100/teacher/pretrained_ViT/non_equ_train_on_GT/teacher_vit_small_weight_selection/checkpoints/best.ckpt \
   student_train.group=Rot90Group \
-  student_train.learning_rate=2e-3 \
+  student_train.learning_rate=3e-3 \
   student_train.scheduler_warmup_epochs=50 \
   student_train.epochs=500 \
   data.batch_size=32 \

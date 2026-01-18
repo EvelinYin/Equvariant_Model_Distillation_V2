@@ -1,3 +1,6 @@
+export TORCH_NCCL_BLOCKING_WAIT=1
+export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
+# export NCCL_TIMEOUT=300
 
 CUDA_VISIBLE_DEVICES=1,2,3,4 python main.py \
   --config src/exp_configs/vit/canonicalizer.yaml \

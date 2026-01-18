@@ -1,4 +1,6 @@
-
+export TORCH_NCCL_BLOCKING_WAIT=1
+export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
+# export NCCL_TIMEOUT=300
 # CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python main.py \
 #   --config src/exp_configs/vit/equ_train_on_gt.yaml \
 #   logging.wandb_name="192_half_channel_ViT_equ_train_on_gt" \

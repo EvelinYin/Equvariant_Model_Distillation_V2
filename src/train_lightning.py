@@ -13,7 +13,8 @@ from src.models import get_model
 from src.data_modules import get_datamodule
 from src.lightning_modules import get_lightining_modules
 
-
+from datetime import timedelta
+from pytorch_lightning.strategies import DDPStrategy
 from pytorch_lightning.plugins.precision import MixedPrecisionPlugin
 from torch.cuda.amp import GradScaler
 import gc 
@@ -84,6 +85,13 @@ def train_teacher(config: Config, data_module: pl.LightningDataModule,
     )
     
     
+    ddp_strategy = DDPStrategy(
+    find_unused_parameters=True,
+    process_group_backend="nccl",  # Explicitly sets NCCL (standard for GPUs)
+    timeout=timedelta(minutes=10)  # REDUCED from default 30 mins to 10 mins
+)
+    
+    
     # Create trainer
     trainer = pl.Trainer(
         logger=wandb_logger_teacher,
@@ -95,7 +103,8 @@ def train_teacher(config: Config, data_module: pl.LightningDataModule,
         # plugins=[MixedPrecisionPlugin(precision=config.precision, device=config.device, scaler=scaler)],
         enable_progress_bar=True,
         # log_every_n_steps=config.logging.log_frequency,
-        strategy='ddp_find_unused_parameters_true',
+        strategy=ddp_strategy,
+        # strategy='ddp_find_unused_parameters_true',
         # strategy='ddp',
         gradient_clip_val=1.0,
         gradient_clip_algorithm="norm" 
@@ -122,12 +131,12 @@ def train_teacher(config: Config, data_module: pl.LightningDataModule,
         print(f"Loading best checkpoint from: {best_path}")
         
         
-        # 2. Load the state dict manually
-        checkpoint = torch.load(best_path)
-        teacher_module.load_state_dict(checkpoint['state_dict'])
+        # # 2. Load the state dict manually
+        # checkpoint = torch.load(best_path)
+        # teacher_module.load_state_dict(checkpoint['state_dict'])
 
-        # 3. Run test, but set ckpt_path=None so Trainer doesn't try to reload it strictly
-        trainer.test(teacher_module, datamodule=data_module, ckpt_path=None)
+        # # 3. Run test, but set ckpt_path=None so Trainer doesn't try to reload it strictly
+        # trainer.test(teacher_module, datamodule=data_module, ckpt_path=None)
         
     # Close wandb run
     wandb_logger_teacher.experiment.finish()
@@ -221,6 +230,13 @@ def train_student(config: Config, data_module: pl.LightningDataModule,
     )
     
     
+    ddp_strategy = DDPStrategy(
+    find_unused_parameters=True,
+    process_group_backend="nccl",  # Explicitly sets NCCL (standard for GPUs)
+    timeout=timedelta(minutes=5)  # REDUCED from default 30 mins to 5 mins
+)
+    
+    
     # Create trainer
     trainer = pl.Trainer(
         logger=wandb_logger_student,
@@ -232,7 +248,8 @@ def train_student(config: Config, data_module: pl.LightningDataModule,
         # plugins=[MixedPrecisionPlugin(precision=config.precision, device=config.device, scaler=scaler)],
         enable_progress_bar=True,
         # log_every_n_steps=config.logging.log_frequency,
-        strategy='ddp_find_unused_parameters_true',
+        strategy=ddp_strategy,
+        # strategy='ddp_find_unused_parameters_true',
         # strategy='ddp',
         gradient_clip_val=1.0,
         gradient_clip_algorithm="norm" 
@@ -260,12 +277,12 @@ def train_student(config: Config, data_module: pl.LightningDataModule,
         print(f"Loading best checkpoint from: {best_path}")
         
         
-        # 2. Load the state dict manually
-        checkpoint = torch.load(best_path)
-        student_module.load_state_dict(checkpoint['state_dict'])
+        # # 2. Load the state dict manually
+        # checkpoint = torch.load(best_path)
+        # student_module.load_state_dict(checkpoint['state_dict'])
 
-        # 3. Run test, but set ckpt_path=None so Trainer doesn't try to reload it strictly
-        trainer.test(student_module, datamodule=data_module, ckpt_path=None)
+        # # 3. Run test, but set ckpt_path=None so Trainer doesn't try to reload it strictly
+        # trainer.test(student_module, datamodule=data_module, ckpt_path=None)
         
     # Close wandb run
     wandb_logger_student.experiment.finish()
