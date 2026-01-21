@@ -147,15 +147,31 @@ class EquViT(nn.Module):
         x = x[:, 0]  # CLS token, (B,2C)
         
         if self.group_attn_channel_pooling:
-            breakpoint()
             B, C2 = x.shape
             C2 = x.shape[1]
             # group_cls_token = self.group_cls_token.expand(B, -1)
-            sim_1 = (x[:, :C2//2] * group_cls_token[:, :C2//2]).sum(dim=1)
-            sim_2 = (x[:, C2//2:] * group_cls_token[:, C2//2:]).sum(dim=1)
-            sim = torch.stack([sim_1, sim_2], dim=-1)  # B,2
-            prob = F.softmax(sim / 0.8, dim=-1)
-            x = prob[:, 0].unsqueeze(-1) * x[:, :C2//2] + prob[:, 1].unsqueeze(-1) * x[:, C2//2:]
+            sims = []
+            
+            for g in range(self.group.order.item()):
+                start_idx = g * (C2 // self.group.order.item())
+                end_idx = (g + 1) * (C2 // self.group.order.item())
+                sim_g = (x[:, start_idx:end_idx] * group_cls_token[:, start_idx:end_idx]).sum(dim=1)
+                sims.append(sim_g)
+            sim = torch.stack(sims, dim=-1)  # B, group_order
+            prob = F.softmax(sim / 0.8, dim=-1)  # temperature
+            
+            
+            # 1. Reshape x to separate the 4 groups
+            # New shape: [Batch, order, Quarter_Size]
+            x_reshaped = x.view(x.shape[0], self.group.order.item(), -1)
+
+            # 2. Reshape prob to broadcast correctly
+            # New shape: [Batch, order, 1]
+            prob_reshaped = prob.unsqueeze(-1)
+
+            # 3. Multiply and sum across the 'split' dimension (dim 1)
+            # Result shape: [Batch, Quarter_Size]
+            x = (x_reshaped * prob_reshaped).sum(dim=1)
 
         elif self.linear_pooling:
             x = self.linear_pooling_layer(x)
