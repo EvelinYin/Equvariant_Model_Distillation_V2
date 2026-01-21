@@ -3,6 +3,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from src.config import DataConfig
 from .base_data_module import BaseDataModule
+import torchvision.transforms.functional as F
 from torchvision.transforms import RandomErasing, RandAugment, ColorJitter, InterpolationMode
 
 
@@ -27,6 +28,8 @@ class CIFAR100DataModule(BaseDataModule):
             transforms.RandomCrop(224, padding=4),
             transforms.RandomHorizontalFlip(),
             ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.4),  # ColorJitter
+            # transforms.RandomRotation(90),
+            transforms.Lambda(lambda img: F.rotate(img, angle=90)),
             RandAugment(
             num_ops=2,  # timm typically uses 2 ops for 'rand' variant
             magnitude=9,

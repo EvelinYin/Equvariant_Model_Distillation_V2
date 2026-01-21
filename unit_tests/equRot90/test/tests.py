@@ -81,7 +81,7 @@ class TestModels(unittest.TestCase):
         assert equ_error < 1e-10
 
     
-    def _test_vit_end_to_end(self):
+    def test_vit_end_to_end(self):
         equ_error = test_vit_forward()
         print("ViT End to End Equivarinace Error -->", equ_error)
         assert equ_error < 1e-10

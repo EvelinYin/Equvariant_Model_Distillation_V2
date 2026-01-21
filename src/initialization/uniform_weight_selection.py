@@ -269,7 +269,8 @@ if __name__ == "__main__":
     teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation_V2/outputs/cifar100/teacher/pretrained_ViT/non_equ_train_on_GT/teacher_vit_small_weight_selection/checkpoints/best.ckpt"
     precision = torch.float32
     # embed_dim = 192
-    embed_dim = 288
+    # embed_dim = 288
+    embed_dim = 192
     # embed_dim = 768
     scale_factor = 384 // embed_dim
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -327,7 +328,7 @@ if __name__ == "__main__":
     # output_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init.ckpt"
     # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/double_channel/zero_init_v2.ckpt"
     # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/192_zero_init_uniform_selection.ckpt"
-    output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/rot90/75percent_ch/zero_init_uniform_selection.ckpt"
+    output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/rot90/half_channel/192_zero_init_uniform_selection.ckpt"
     # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/vit_tiny_teacher/192_zero_init_uniform_selection.ckpt"
     
     

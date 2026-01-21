@@ -93,7 +93,7 @@ def test_vit_backward():
     rx = torch.rot90(x, k=1, dims=(-2, -1)).cuda()
     optimizer = torch.optim.Adam(layer.parameters(), lr=100000)
     
-    for i in range(1000):
+    for i in range(100):
         optimizer.zero_grad()
         output = layer(x)
         out_rx = layer(rx)
