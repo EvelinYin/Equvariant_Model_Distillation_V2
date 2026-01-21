@@ -116,7 +116,7 @@ class EquViT(nn.Module):
         
         ### Add group cls token
         if self.group_attn_channel_pooling:
-            group_cls_token = torch.cat([self.group_cls_token, self.group_cls_token], dim=-1)  # (1, 1, 2*C)
+            group_cls_token = torch.cat([self.group_cls_token] * self.group.order.item(), dim=-1)  # (1, 1, group_order*C)
             group_cls_token = group_cls_token.expand(B, -1, -1)
             x = torch.cat([group_cls_token, x], dim=1)
         
