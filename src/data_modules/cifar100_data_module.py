@@ -29,7 +29,16 @@ class CIFAR100DataModule(BaseDataModule):
             transforms.RandomHorizontalFlip(),
             ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.4),  # ColorJitter
             # transforms.RandomRotation(90),
-            transforms.Lambda(lambda img: F.rotate(img, angle=90)),
+            transforms.RandomChoice([
+                    transforms.Lambda(lambda img: img),
+                    transforms.Lambda(lambda img: F.rotate(img, 45)),
+                    transforms.Lambda(lambda img: F.rotate(img, 90)),
+                    transforms.Lambda(lambda img: F.rotate(img, 135)),
+                    transforms.Lambda(lambda img: F.rotate(img, 180)),
+                    transforms.Lambda(lambda img: F.rotate(img, 225)),
+                    transforms.Lambda(lambda img: F.rotate(img, 270)),
+                    transforms.Lambda(lambda img: F.rotate(img, 315)),
+                ]),
             RandAugment(
             num_ops=2,  # timm typically uses 2 ops for 'rand' variant
             magnitude=9,

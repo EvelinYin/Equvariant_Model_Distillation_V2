@@ -3,31 +3,31 @@ import torch.nn as nn
 import math
 import kornia as K
 from .base_group import GroupBase
-from src.equ_lib.layers.equ_pos_embedding import Rotation90SymmetricPosEmbed
+from src.equ_lib.layers.equ_pos_embedding import Rotation45SymmetricPosEmbed
 
-class Rot90Group(GroupBase):
+class Rot45Group(GroupBase):
     """
-    The C4 Group representing 90-degree rotations.
-    Elements: {0: Identity, 1: 90°, 2: 180°, 3: 270°}
+    The C8 Group representing 45-degree rotations.
+    Elements: {0: Identity, 1: 45°, 2: 90°, 3: 135°, 4: 180°, 5: 225°, 6: 270°, 7: 315°}
     """
     def __init__(self):
         super().__init__(dimension=1, identity=[0.])
         
-        self.order = torch.tensor(4)  # Four elements: {0, 1, 2, 3}
+        self.order = torch.tensor(8)  # Eight elements: {0, 1, 2, 3, 4, 5, 6, 7}
 
     def elements(self):
-        # 0 = Identity, 1 = 90°, 2 = 180°, 3 = 270°
-        return torch.tensor([0, 1, 2, 3], device=self.identity.device)
+        # 0 = Identity, 1 = 45°, 2 = 90°, ..., 7 = 315°
+        return torch.tensor([0, 1, 2, 3, 4, 5, 6, 7], device=self.identity.device)
 
     def product(self, h, h_prime):
-        # Addition modulo 4: rotations compose by adding angles
-        # e.g., 90° + 180° = 270° → (1 + 2) % 4 = 3
-        return torch.remainder(h + h_prime, 4)
+        # Addition modulo 8: rotations compose by adding angles
+        # e.g., 45° + 90° = 135° → (1 + 2) % 8 = 3
+        return torch.remainder(h + h_prime, 8)
 
     def inverse(self, h):
-        # Inverse of k*90° is (4-k)*90° for k > 0
-        # 0 -> 0, 1 -> 3, 2 -> 2, 3 -> 1
-        return torch.remainder(4 - h, 4)
+        # Inverse of k*45° is (8-k)*45° for k > 0
+        # 0 -> 0, 1 -> 7, 2 -> 6, 3 -> 5, 4 -> 4, 5 -> 3, 6 -> 2, 7 -> 1
+        return torch.remainder(8 - h, 8)
 
     def left_action_on_R2(self, h, x):
         """
@@ -45,12 +45,12 @@ class Rot90Group(GroupBase):
         Returns 2x2 rotation matrices for the group elements.
         h can be a batch of elements.
         
-        Rotation by k*90° counterclockwise:
-        [[cos(k*90°), -sin(k*90°)],
-         [sin(k*90°),  cos(k*90°)]]
+        Rotation by k*45° counterclockwise:
+        [[cos(k*45°), -sin(k*45°)],
+         [sin(k*45°),  cos(k*45°)]]
         """
-        # Convert h to angle in radians: k * 90° = k * π/2
-        angle = h * (math.pi / 2)
+        # Convert h to angle in radians: k * 45° = k * π/4
+        angle = h * (math.pi / 4)
         
         cos_angle = torch.cos(angle)
         sin_angle = torch.sin(angle)
@@ -64,25 +64,25 @@ class Rot90Group(GroupBase):
         return representation
     
     def get_shared_weight_linear_weights(self, in_features, out_features):
-        # Four separate weight matrices for the four rotation elements
+        # Eight separate weight matrices for the eight rotation elements
         weights = []
-        for _ in range(4):
+        for _ in range(8):
             w = torch.empty(out_features, in_features)
             w = nn.Parameter(w)
             nn.init.kaiming_uniform_(w, a=(5 ** 0.5))
-            w.data /= math.sqrt(4)  # Divide by sqrt(4) since we have 4 elements
+            w.data /= math.sqrt(8)  # Divide by sqrt(8) since we have 8 elements
             weights.append(w)
         
         return weights
     
     def get_channel_attention(self, q, k, v, head_dim, temperature=1.0, attn_drop=None):
-        # Split into 4 groups corresponding to the 4 rotation elements
+        # Split into 8 groups corresponding to the 8 rotation elements
         group_dim = head_dim
         
         attns = []
         xs = []
         
-        for i in range(4):
+        for i in range(8):
             start_idx = i * group_dim
             end_idx = (i + 1) * group_dim
             
@@ -100,26 +100,27 @@ class Rot90Group(GroupBase):
     
     def roll_group(self, x):
         B, N, C = x.shape
-        x = x.reshape(B, N, 4, -1)
+        x = x.reshape(B, N, 8, -1)
         x = torch.roll(x, shifts=1, dims=2)
         return x.reshape(B, N, C)
     
     def trans(self, x, g):
         """
         Apply rotation transformation to image x.
-        g: rotation element (0, 1, 2, 3)
+        g: rotation element (0, 1, 2, 3, 4, 5, 6, 7)
+        Uses kornia for arbitrary angle rotation.
         """
         if g == 0:
             return x
-        elif g == 1:
-            # 90° counterclockwise
-            return torch.rot90(x, k=1, dims=[-2, -1])
-        elif g == 2:
-            # 180°
-            return torch.rot90(x, k=2, dims=[-2, -1])
-        elif g == 3:
-            # 270° counterclockwise (or 90° clockwise)
-            return torch.rot90(x, k=3, dims=[-2, -1])
+        else:
+            angle = float(g * 45)
+            batch_size = x.shape[0]
+            angle_tensor = torch.tensor([angle] * batch_size, device=x.device, dtype=x.dtype)
+            
+            if x.ndim == 3:  # Shape: [B, H, W] - add channel dimension
+                return K.geometry.rotate(x.unsqueeze(1), angle_tensor).squeeze(1)
+            elif x.ndim == 4:  # Shape: [B, C, H, W]
+                return K.geometry.rotate(x, angle_tensor)
     
     def roll(self, x, g):
         if g == 0:
@@ -130,22 +131,21 @@ class Rot90Group(GroupBase):
     
         
     def get_pos_embd(self, num_patches, embed_dim, group_attn_channel_pooling):
-        return Rotation90SymmetricPosEmbed(num_patches=num_patches, embed_dim=embed_dim, group_attn_channel_pooling=group_attn_channel_pooling)
+        return Rotation45SymmetricPosEmbed(num_patches=num_patches, embed_dim=embed_dim, group_attn_channel_pooling=group_attn_channel_pooling)
     
     
 
     def get_canonicalization_ref(self, device, dtype):
-        return torch.linspace(0.0, 360.0, self.order + 1)[:self.order].to(device=device, dtype=dtype)  # [0, 90, 180, 270]
+        return torch.linspace(0.0, 360.0, self.order + 1)[:self.order].to(device=device, dtype=dtype)  # [0, 45, 90, 135, 180, 225, 270, 315]
     
     def get_canonicalized_images(self, images, indicator):
         """
         Canonicalize images by applying the inverse rotation.
-        indicator: which rotation to undo (0, 1, 2, 3)
+        indicator: which rotation to undo (0, 1, 2, 3, 4, 5, 6, 7)
         """
-        # return torch.rot90(images, k=int(-indicator // 90), dims=[2, 3]), indicator.view(-1, 1, 1, 1)
         return K.geometry.rotate(images, -indicator), indicator.view(-1, 1, 1, 1)
 
     def normalize_group_elements(self, h):
         # Normalize to [-1, 1] range
-        # 0 -> -1, 1 -> -0.33, 2 -> 0.33, 3 -> 1
-        return 2 * (h / 3) - 1
+        # 0 -> -1, 1 -> -0.714, ..., 7 -> 1
+        return 2 * (h / 7) - 1

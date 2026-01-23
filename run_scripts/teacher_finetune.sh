@@ -15,7 +15,7 @@ export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 #   logging.wandb_mode="online" \
 
 
-CUDA_VISIBLE_DEVICES=2,3 python main.py \
+CUDA_VISIBLE_DEVICES=0,1,2,3 python main.py \
   --config src/exp_configs/vit/teacher_finetune.yaml \
   train_teacher=true \
   teacher_model.pretrained_vit_config.model_name="WinKawaks/vit-small-patch16-224" \
@@ -23,6 +23,7 @@ CUDA_VISIBLE_DEVICES=2,3 python main.py \
   teacher_train.learning_rate=2e-5 \
   teacher_train.scheduler_warmup_epochs=50 \
   teacher_train.weight_decay=5e-2 \
-  data.batch_size=512 \
-  logging.wandb_name="teacher_rot90aug_vit_small_weight_selection" \
+  teacher_train.group="Rot45Group" \
+  data.batch_size=256 \
+  logging.wandb_name="teacher_rot45aug_vit_small_weight_selection" \
   logging.wandb_mode="online" \

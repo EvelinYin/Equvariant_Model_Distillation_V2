@@ -25,12 +25,12 @@ CUDA_VISIBLE_DEVICES=0 python main.py \
   data.num_workers=0 \
   train_teacher=true \
   teacher_model.pretrained_vit_config.model_name='WinKawaks/vit-small-patch16-224' \
-  teacher_train.teacher_ckpt_path=/home/yin178/Equvariant_Model_Distillation_V2/outputs/Rot90Group/cifar100/teacher/pretrained_ViT/non_equ_train_on_GT/teacher_rot90aug_vit_small_weight_selection/checkpoints/best.ckpt \
+  teacher_train.teacher_ckpt_path=/home/yin178/Equvariant_Model_Distillation_V2/outputs/Rot90Group/cifar100/teacher/pretrained_ViT/non_equ_train_on_GT/teacher_rot90aug_vit_small_weight_selection/checkpoints/best-v2.ckpt \
   teacher_train.group="Rot90Group" \
   test_only=true \
   logging.wandb_mode="online" \
   logging.wandb_name="test_teacher_rot90_aug_finetune_winKawaks_vit_small" \
-
+# /home/yin178/Equvariant_Model_Distillation_V2/outputs/Rot90Group/cifar100/teacher/pretrained_ViT/non_equ_train_on_GT/teacher_rot90aug_vit_small_weight_selection/checkpoints/best-v2.ckpt
   # teacher_train.teacher_ckpt_path=/home/yin178/Equvariant_Model_Distillation_V2/outputs/cifar100/teacher/pretrained_ViT/non_equ_train_on_GT/teacher_vit_small_weight_selection/checkpoints/best.ckpt \
 # 
   # 
