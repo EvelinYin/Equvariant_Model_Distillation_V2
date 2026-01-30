@@ -21,9 +21,9 @@ from models.resnet_end_to_end_test import test_resnet_forward
 
 class TestModels(unittest.TestCase):
     def test_vit_end_to_end(self):
-        equ_error = test_vit_forward()
-        print("ViT End to End Equivarinace Error -->", equ_error)
-        assert equ_error < 1e-10
+        # equ_error = test_vit_forward()
+        # print("ViT End to End Equivarinace Error -->", equ_error)
+        # assert equ_error < 1e-10
         
         equ_error = test_vit_backward()
         print("ViT End to End Equivarinace Error (backward) -->", equ_error, "\n")

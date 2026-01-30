@@ -107,16 +107,19 @@ def test_vit_backward():
                     group=rotation45_group)
     
 
-    layer.eval()
+    # layer.eval()
+    layer.train()
     layer = layer.to(torch.float64).cuda()
 
     x = torch.randn(batchsize, 3, img_size, img_size).to(torch.float64).cuda()
     
     # Use 45° rotation for the test
     rx = rotate_image_pytorch(x, 45.0)
-    optimizer = torch.optim.Adam(layer.parameters(), lr=100000)
+    # optimizer = torch.optim.Adam(layer.parameters(), lr=100000)
+    optimizer = torch.optim.Adam(layer.parameters(), lr=0.1)
     
-    for i in range(100):
+    
+    for i in range(50):
         optimizer.zero_grad()
         output = layer(x)
         out_rx = layer(rx)

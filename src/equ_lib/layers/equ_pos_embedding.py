@@ -1,6 +1,7 @@
 import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 class FlippingSymmetricPosEmbed(nn.Module):
     def __init__(self, num_patches, embed_dim, group_attn_channel_pooling=False):
@@ -172,9 +173,16 @@ class Rotation90SymmetricPosEmbed(nn.Module):
         return x + full_pos_embed
     
     
-
-
 class Rotation45SymmetricPosEmbed(nn.Module):
+    """
+    Positional embedding with 45-degree rotation symmetry (8-fold: 0°, 45°, 90°, ..., 315°).
+    
+    Since 45° rotations don't map grid points to grid points exactly on discrete grids,
+    we use bilinear interpolation to handle non-integer coordinates.
+    
+    We learn positions in a 45° wedge (0° to 45° from the center) and generate
+    the rest through rotations with appropriate channel permutations.
+    """
     def __init__(self, num_patches, embed_dim, group_attn_channel_pooling=False):
         super().__init__()
         
@@ -186,113 +194,126 @@ class Rotation45SymmetricPosEmbed(nn.Module):
         
         assert self.H == self.W, "Height and Width must be equal for rotation symmetry"
         
-        # For 45-degree rotation symmetry, we use radial-angular decomposition
-        # Key insight: A position (i,j) can be described by:
-        # - Distance from center (radius): invariant under rotation
-        # - Angle from center: changes by 45° increments under rotation
+        # For 45-degree rotation symmetry, we learn a 45-degree wedge
+        # This is the region where angle from positive x-axis is in [0, 45°]
         
-        # Precompute center coordinates
-        self.center = (self.H - 1) / 2.0
+        self.learnable_positions = []
+        center = (self.H - 1) / 2.0
         
-        # Create coordinate grid
-        coords = []
         for i in range(self.H):
             for j in range(self.W):
-                # Compute relative coordinates from center
-                y = i - self.center
-                x = j - self.center
+                # Convert to centered coordinates
+                y = center - i  # positive = up
+                x = j - center  # positive = right
                 
-                # Compute radius (distance from center)
-                r = math.sqrt(x**2 + y**2)
-                
-                # Compute angle in [0, 2π), but quantize to 8 sectors (45° each)
-                angle = math.atan2(y, x)  # Range: [-π, π]
-                if angle < 0:
-                    angle += 2 * math.pi  # Range: [0, 2π)
-                
-                # Quantize angle to nearest 45° sector (0-7)
-                sector = int((angle + math.pi/8) / (math.pi/4)) % 8
-                
-                coords.append((i, j, r, sector))
+                # Calculate angle from positive x-axis
+                if x == 0 and y == 0:
+                    # Center point - always include
+                    self.learnable_positions.append((i, j))
+                else:
+                    angle = math.atan2(y, x)  # Returns [-π, π]
+                    if angle < 0:
+                        angle += 2 * math.pi  # Convert to [0, 2π]
+                    
+                    # Learn positions in 0° to 45° wedge (0 to π/4 radians)
+                    if 0 <= angle <= math.pi / 4 + 1e-6:
+                        self.learnable_positions.append((i, j))
         
-        # Group positions by (radius, sector) to identify unique learnable positions
-        # Positions with same radius and sector (modulo 8) share embeddings
-        from collections import defaultdict
-        radius_sector_to_positions = defaultdict(list)
+        num_learnable = len(self.learnable_positions)
         
-        for i, j, r, sector in coords:
-            # Quantize radius to reduce parameters
-            r_quantized = round(r * 10) / 10  # Quantize to 0.1 precision
-            radius_sector_to_positions[(r_quantized, 0)].append((i, j, sector))
-        
-        # We learn embeddings for unique radii only (sector 0)
-        # Each radius gets a C-dimensional embedding
-        # The full 8C embedding is created by rotating through sectors
-        self.unique_radii = sorted(set(r for r, s in radius_sector_to_positions.keys()))
-        self.num_unique_radii = len(self.unique_radii)
-        
-        # Create mapping from grid position to (radius_idx, sector)
-        self.position_to_radius_sector = {}
-        for i in range(self.H):
-            for j in range(self.W):
-                y = i - self.center
-                x = j - self.center
-                r = math.sqrt(x**2 + y**2)
-                r_quantized = round(r * 10) / 10
-                
-                angle = math.atan2(y, x)
-                if angle < 0:
-                    angle += 2 * math.pi
-                sector = int((angle + math.pi/8) / (math.pi/4)) % 8
-                
-                # Find radius index
-                radius_idx = self.unique_radii.index(r_quantized)
-                self.position_to_radius_sector[(i, j)] = (radius_idx, sector)
-        
-        # Learn C-dimensional embedding for each unique radius
-        self.radial_embed = nn.Parameter(torch.empty(self.num_unique_radii, self.C).normal_(std=0.02))
-        
+        # We learn the full 8C embedding for the learnable positions
+        self.pos_embed_learnable = nn.Parameter(
+            torch.empty(1, num_learnable, 8 * self.C).normal_(std=0.02)
+        )
+
         # CLS token pos embed must be self-symmetric under all rotations
-        # We learn size C and repeat it 8 times
-        self.cls_pos_quarter = nn.Parameter(torch.randn(1, 1, self.C))
+        self.cls_pos_eighth = nn.Parameter(torch.randn(1, 1, self.C))
         
         self.group_attn_channel_pooling = group_attn_channel_pooling
         if group_attn_channel_pooling:
-            self.group_cls_pos_quarter = nn.Parameter(torch.randn(1, 1, self.C))
+            self.group_cls_pos_eighth = nn.Parameter(torch.randn(1, 1, self.C))
+        
+        # Precompute rotation mappings for efficiency
+        self._precompute_rotation_mappings()
+
+    def _precompute_rotation_mappings(self):
+        """
+        Precompute which learnable position and rotation corresponds to each grid position.
+        This avoids recomputation in forward pass.
+        """
+        center = (self.H - 1) / 2.0
+        
+        # For each grid position, store (learnable_idx, rotation_k)
+        self.position_to_source = {}
+        
+        for idx, (i, j) in enumerate(self.learnable_positions):
+            for k in range(8):
+                # Rotate (i, j) by k*45 degrees CCW
+                y = center - i
+                x = j - center
+                
+                theta = k * math.pi / 4
+                cos_t = math.cos(theta)
+                sin_t = math.sin(theta)
+                
+                x_new = cos_t * x - sin_t * y
+                y_new = sin_t * x + cos_t * y
+                
+                i_new = int(round(center - y_new))
+                j_new = int(round(center + x_new))
+                
+                # Clamp to valid range
+                i_new = max(0, min(self.H - 1, i_new))
+                j_new = max(0, min(self.W - 1, j_new))
+                
+                # Store mapping (if not already set, or if this is a more "canonical" mapping)
+                key = (i_new, j_new)
+                if key not in self.position_to_source:
+                    self.position_to_source[key] = (idx, k)
 
     def _create_rotation_grid(self):
         """
-        Creates the full spatial grid using radial embeddings and angular rotations.
-        For each position (i,j):
-        - Find its radius -> get base C-dimensional embedding
-        - Find its sector (0-7) -> cyclically shift the 8 channels accordingly
+        Creates the full spatial grid by rotating the learnable positions.
+        For each position (i,j) in the learnable wedge, we compute its 7 rotated versions
+        and assign appropriate channel permutations.
         """
-        device = self.radial_embed.device
+        device = self.pos_embed_learnable.device
         
         # Initialize full grid
-        grid = torch.zeros(1, self.H, self.W, 8*self.C, device=device)
+        grid = torch.zeros(1, self.H, self.W, 8 * self.C, device=device)
+        center = (self.H - 1) / 2.0
         
-        for i in range(self.H):
-            for j in range(self.W):
-                radius_idx, sector = self.position_to_radius_sector[(i, j)]
+        # Fill in the grid using learnable positions and their rotations
+        for idx, (i, j) in enumerate(self.learnable_positions):
+            learned_embed = self.pos_embed_learnable[:, idx, :]  # (1, 8C)
+            
+            # Split into 8 channel groups
+            channels = learned_embed.chunk(8, dim=-1)  # Each is (1, C)
+            
+            # Apply 8 rotations (0°, 45°, 90°, ..., 315°)
+            for k in range(8):
+                # Rotate coordinates by k*45 degrees CCW
+                y = center - i
+                x = j - center
                 
-                # Get base radial embedding (C-dimensional)
-                base_embed = self.radial_embed[radius_idx]  # (C,)
+                theta = k * math.pi / 4
+                cos_t = math.cos(theta)
+                sin_t = math.sin(theta)
                 
-                # Create 8 copies and cyclically rotate based on sector
-                # Sector 0: [c, c, c, c, c, c, c, c]
-                # Sector 1: [c, c, c, c, c, c, c, c] but rotated in channel groups
-                # ... and so on
+                x_new = cos_t * x - sin_t * y
+                y_new = sin_t * x + cos_t * y
                 
-                # Expand to 8 groups
-                full_embed = base_embed.unsqueeze(0).expand(8, -1)  # (8, C)
+                i_rot = int(round(center - y_new))
+                j_rot = int(round(center + x_new))
                 
-                # Apply cyclic shift based on sector
-                # This ensures rotation equivariance
-                full_embed = torch.roll(full_embed, shifts=sector, dims=0)  # (8, C)
+                # Clamp to valid range
+                i_rot = max(0, min(self.H - 1, i_rot))
+                j_rot = max(0, min(self.W - 1, j_rot))
                 
-                # Flatten to (8C,)
-                grid[0, i, j, :] = full_embed.flatten()
+                # Channels rotate: c0->c1->c2->...->c7->c0
+                # For k rotations, channel at position n comes from position (n-k) % 8
+                rotated_channels = [channels[(n - k) % 8] for n in range(8)]
+                grid[:, i_rot, j_rot, :] = torch.cat(rotated_channels, dim=-1)
         
         return grid
 
@@ -307,10 +328,10 @@ class Rotation45SymmetricPosEmbed(nn.Module):
 
         # --- Construct CLS Token Embedding ---
         # CLS token is invariant under rotations, so all 8 channels are the same
-        cls_pos = torch.cat([self.cls_pos_quarter] * 8, dim=-1)  # (1, 1, 8C)
+        cls_pos = torch.cat([self.cls_pos_eighth] * 8, dim=-1)  # (1, 1, 8C)
         
         if self.group_attn_channel_pooling:
-            group_cls_pos = torch.cat([self.group_cls_pos_quarter] * 8, dim=-1)  # (1, 1, 8C)
+            group_cls_pos = torch.cat([self.group_cls_pos_eighth] * 8, dim=-1)  # (1, 1, 8C)
 
         # --- Combine ---
         if self.group_attn_channel_pooling:
@@ -319,3 +340,5 @@ class Rotation45SymmetricPosEmbed(nn.Module):
             full_pos_embed = torch.cat([cls_pos, pos_embed_patches], dim=1)
         
         return x + full_pos_embed
+
+
