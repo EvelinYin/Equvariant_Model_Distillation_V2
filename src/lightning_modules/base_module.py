@@ -110,17 +110,17 @@ class BaseLightningModule(pl.LightningModule):
     def compute_and_log_equ_tests(self, x: Any, y: Any) -> Dict[str, torch.Tensor]:
         all_logits = []
         for g in range(self.group.elements().numel()):
-            x = self.group.trans(x, g)
+            transformed_x = self.group.trans(x, g)
             
 
             # Use canonicalizer if available
             if self.canonicalizer is not None:
-                cano_x, _, _ = self.canonicalizer(x)
+                cano_x, _, _ = self.canonicalizer(transformed_x)
                 # tmp_cache_cano.append(x)
             
             # Get predictions
             with torch.no_grad():
-                student_logits = self.model(cano_x if self.canonicalizer is not None else x)
+                student_logits = self.model(cano_x if self.canonicalizer is not None else transformed_x)
             
             # this is for group attn pooling
             if isinstance(student_logits, tuple):
@@ -133,9 +133,21 @@ class BaseLightningModule(pl.LightningModule):
             self.log(f"test/accuracy_group{g}", self.test_accuracy_list[str(g)], on_epoch=True, on_step=False)
         
         
-
-        logits_diff = all_logits[0] - all_logits[1]
-        self.log(f"test/logits_diff_g0_g1", torch.norm(logits_diff), on_epoch=True, on_step=False)
+        all_diff = 0.0
+        all_kl = 0.0
+        
+        p_group0 = F.softmax(all_logits[0], dim=-1)
+        for i in range(1, len(all_logits)):
+            all_diff += torch.norm(all_logits[0] - all_logits[i])
+            
+            log_p_groupi = F.log_softmax(all_logits[i], dim=-1)
+            kl_val = F.kl_div(log_p_groupi, p_group0, reduction='batchmean')
+            all_kl += kl_val
+        # logits_diff = all_logits[0] - all_logits[1]
+        all_diff /= (len(all_logits) - 1)
+        all_kl /= (len(all_logits) - 1)
+        self.log(f"test/logits_diff_avg_all_group", all_diff, on_epoch=True, on_step=False)
+        self.log(f"test/kl_div_avg_all_group", all_kl, on_epoch=True, on_step=False)
 
 
     # --- Common Test Loop ---

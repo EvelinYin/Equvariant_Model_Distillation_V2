@@ -68,14 +68,15 @@ def test_vit_forward():
     errors = []
     for k in range(1, 8):  # k=0 is identity, so we test k=1,2,...,7
         angle = k * 45.0  # Rotation angle in degrees
-        rx = rotate_image_pytorch(x, angle)
+        # rx = rotate_image_pytorch(x, angle)
+        rx = layer.group.trans(x, k)
         
         out_x = layer(x)
         out_rx = layer(rx)
         
         error = torch.norm(out_x - out_rx).item()
         errors.append(error)
-        print(f"Rotation {angle}°: error = {error}")
+        print(f"Rotation {angle}°: error = {error}, relative error = {error / torch.norm(out_rx).item()}")
     
     # Return maximum error across all rotations
     max_error = max(errors)
@@ -107,7 +108,6 @@ def test_vit_backward():
                     group=rotation45_group)
     
 
-    # layer.eval()
     layer.train()
     layer = layer.to(torch.float64).cuda()
 
@@ -115,11 +115,11 @@ def test_vit_backward():
     
     # Use 45° rotation for the test
     rx = rotate_image_pytorch(x, 45.0)
-    # optimizer = torch.optim.Adam(layer.parameters(), lr=100000)
-    optimizer = torch.optim.Adam(layer.parameters(), lr=0.1)
+    optimizer = torch.optim.Adam(layer.parameters(), lr=100000)
+    # optimizer = torch.optim.Adam(layer.parameters(), lr=0.1)
     
     
-    for i in range(50):
+    for i in range(500):
         optimizer.zero_grad()
         output = layer(x)
         out_rx = layer(rx)
@@ -138,7 +138,9 @@ def test_vit_backward():
     errors = []
     for k in range(1, 8):  # Test all 7 non-identity rotations
         angle = k * 45.0
-        rx = rotate_image_pytorch(x, angle)
+        # rx = rotate_image_pytorch(x, angle)
+        rx = layer.group.trans(x, k)
+
         
         out_x = layer(x)
         out_rx = layer(rx)

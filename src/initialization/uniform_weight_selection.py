@@ -10,6 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from src.utils import clean_state_dict
 from src.models.ViT.pretrained_HF import PretrainedViT
 from src.equ_lib.groups.rot90_group import Rot90Group
+from src.equ_lib.groups.rot45_group import Rot45Group
 from src.equ_lib.groups.flipping_group import FlipGroup
 from src.equ_lib.groups.rot45_group import Rot45Group
 
@@ -76,60 +77,62 @@ def pretrained_vit_initialization(teacher_model, teacher_ckpt_path, student_mode
     student_model.cls_token.data = uniform_element_selection(teacher_model.vit.embeddings.cls_token.data, student_state_dict['cls_token'].shape)
     
     
-    # pos embeddings
-    # Get teacher positional embeddings
-    teacher_pos_embed = teacher_model.vit.embeddings.position_embeddings.data  # Shape: (1, num_patches+1, embed_dim)
+    # # pos embeddings
+    # # Get teacher positional embeddings
+    # teacher_pos_embed = teacher_model.vit.embeddings.position_embeddings.data  # Shape: (1, num_patches+1, embed_dim)
 
-    # Check if student model has symmetric positional embeddings
-    if hasattr(student_model.pos_embed, '_create_rotation_grid'):
-        # Rotation90SymmetricPosEmbed or Rotation45SymmetricPosEmbed case
-        # Extract spatial embeddings (excluding cls token)
-        teacher_spatial_pos = teacher_pos_embed[:, 1:, :]  # (1, num_patches, embed_dim)
-        B, N, C_teacher = teacher_spatial_pos.shape
-        H_teacher = W_teacher = int(N ** 0.5)
+    # # Check if student model has symmetric positional embeddings
+    # if hasattr(student_model.add_pos_embed, '_create_rotation_grid'):
+    #     # Rotation90SymmetricPosEmbed or Rotation45SymmetricPosEmbed case
+    #     # Extract spatial embeddings (excluding cls token)
+    #     teacher_spatial_pos = teacher_pos_embed[:, 1:, :]  # (1, num_patches, embed_dim)
+    #     B, N, C_teacher = teacher_spatial_pos.shape
+    #     H_teacher = W_teacher = int(N ** 0.5)
         
-        # Reshape to spatial grid
-        teacher_grid = teacher_spatial_pos.reshape(1, H_teacher, W_teacher, C_teacher)
+    #     # Reshape to spatial grid
+    #     teacher_grid = teacher_spatial_pos.reshape(1, H_teacher, W_teacher, C_teacher)
         
-        if isinstance(student_model.pos_embed, type(student_model.pos_embed)) and 'Rotation90' in type(student_model.pos_embed).__name__:
-            # Rotation90SymmetricPosEmbed: learn upper-right triangle
-            target_shape = student_model.pos_embed.learnable_region.data.shape
+    #     if isinstance(student_model.add_pos_embed, type(student_model.add_pos_embed)) and 'Rotation90' in type(student_model.add_pos_embed).__name__:
+    #         # Rotation90SymmetricPosEmbed: learn upper-right triangle
+    #         target_shape = student_model.add_pos_embed.pos_embed_learnable.data.shape
             
-            # Extract upper-right triangle region from teacher
-            H_student = student_model.pos_embed.H
-            teacher_triangle = []
-            for i in range(H_student):
-                for j in range(i, H_student):
-                    teacher_triangle.append(teacher_grid[:, i, j, :])
-            teacher_triangle = torch.stack(teacher_triangle, dim=1)  # (1, num_learnable, C_teacher)
+    #         # Extract upper-right triangle region from teacher
+    #         H_student = student_model.add_pos_embed.H
+    #         teacher_triangle = []
+    #         for i in range(H_student):
+    #             for j in range(i, H_student):
+    #                 teacher_triangle.append(teacher_grid[:, i, j, :])
+    #         teacher_triangle = torch.stack(teacher_triangle, dim=1)  # (1, num_learnable, C_teacher)
             
-            # Uniform selection
-            selected_region = uniform_element_selection(teacher_triangle, target_shape)
-            student_model.pos_embed.learnable_region.data = selected_region
-        else:
-            # Rotation45SymmetricPosEmbed: learn wedge region
-            target_shape = student_model.pos_embed.learnable_wedge.data.shape
+    #         # Uniform selection
+    #         selected_region = uniform_element_selection(teacher_triangle, target_shape)
+    #         student_model.add_pos_embed.pos_embed_learnable.data = selected_region
+    #     else:
+    #         # Rotation45SymmetricPosEmbed: learn wedge region
+    #         target_shape = student_model.add_pos_embed.pos_embed_learnable.data.shape
             
-            # For simplicity, extract a wedge-like region from teacher
-            # This is approximate since 45-degree rotations don't align perfectly with grid
-            H_student = student_model.pos_embed.H
-            num_wedge_points = target_shape[1]
+    #         # For simplicity, extract a wedge-like region from teacher
+    #         # This is approximate since 45-degree rotations don't align perfectly with grid
+    #         H_student = student_model.add_pos_embed.H
+    #         num_wedge_points = target_shape[1]
             
-            # Sample uniformly from teacher grid in a wedge-like pattern
-            teacher_flat = teacher_grid.reshape(1, -1, C_teacher)
-            selected_wedge = uniform_element_selection(teacher_flat[:, :num_wedge_points, :], target_shape)
-            student_model.pos_embed.learnable_wedge.data = selected_wedge
+    #         # Sample uniformly from teacher grid in a wedge-like pattern
+    #         teacher_flat = teacher_grid.reshape(1, -1, C_teacher)
+    #         breakpoint()
+    #         selected_wedge = uniform_element_selection(teacher_flat[:, :num_wedge_points, :], target_shape)
+    #         student_model.add_pos_embed.pos_embed_learnable.data = selected_wedge
         
-        # Initialize CLS token positional embedding
-        teacher_cls_pos = teacher_pos_embed[:, 0:1, :]  # (1, 1, embed_dim)
-        target_cls_shape = (1, 1, student_model.pos_embed.C // group.order)
-        selected_cls = uniform_element_selection(teacher_cls_pos, target_cls_shape)
-        student_model.pos_embed.cls_pos_base.data = selected_cls
-    else:
-        # Standard non-equivariant positional embedding
-        target_shape = student_model.pos_embed.pos_embed.data.shape
-        selected_pos = uniform_element_selection(teacher_pos_embed, target_shape)
-        student_model.pos_embed.pos_embed.data = selected_pos
+    #     # Initialize CLS token positional embedding
+    #     teacher_cls_pos = teacher_pos_embed[:, 0:1, :]  # (1, 1, embed_dim)
+    #     target_cls_shape = (1, 1, student_model.add_pos_embed.C // group.order)
+    #     selected_cls = uniform_element_selection(teacher_cls_pos, target_cls_shape)
+    #     student_model.add_pos_embed.cls_pos_base.data = selected_cls
+    # else:
+    #     breakpoint()
+    #     # # Standard non-equivariant positional embedding
+    #     # target_shape = student_model.add_pos_embed.pos_embed.data.shape
+    #     # selected_pos = uniform_element_selection(teacher_pos_embed, target_shape)
+    #     # student_model.pos_embed.pos_embed.data = selected_pos
 
 
     
@@ -147,7 +150,7 @@ def pretrained_vit_initialization(teacher_model, teacher_ckpt_path, student_mode
     W = teacher_model.vit.embeddings.patch_embeddings.projection.weight.data
     W = uniform_element_selection(W, student_model.patch_embed.grouplayer.kernel.weight.data[:,:,0].shape)
     student_model.patch_embed.grouplayer.kernel.weight.data = torch.zeros_like(student_model.patch_embed.grouplayer.kernel.weight.data)
-    student_model.patch_embed.grouplayer.kernel.weight.data[:,:,0::2] = W.unsqueeze(2)
+    student_model.patch_embed.grouplayer.kernel.weight.data[:,:,0::num_elements] = W.unsqueeze(2)
     
     student_model.patch_embed.grouplayer.bias.data = torch.zeros_like(student_model.patch_embed.grouplayer.bias.data)
     student_model.patch_embed.grouplayer.bias.data = uniform_element_selection(teacher_model.vit.embeddings.patch_embeddings.projection.bias.data,
@@ -326,12 +329,12 @@ if __name__ == "__main__":
     # teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/ViT/teacher/pretrained_finetuned/epoch=07.ckpt"
     # teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/teacher/google/vit-base-patch16-224/best_fixed.ckpt"
     # teacher_ckpt_path = None
-    teacher_ckpt_path = "/home/yin178/Equvariant_Model_Distillation_V2/outputs/cifar100/teacher/pretrained_ViT/non_equ_train_on_GT/teacher_vit_small_weight_selection/checkpoints/best.ckpt"
+    teacher_ckpt_path = "./outputs/cifar100/teacher/pretrained_ViT/non_equ_train_on_GT/teacher_vit_small_weight_selection/checkpoints/best.ckpt"
     precision = torch.float32
     # embed_dim = 192
     # embed_dim = 288
-    # embed_dim = 192
-    embed_dim = 96
+    embed_dim = 192
+    # embed_dim = 96
     # embed_dim = 768
     scale_factor = 384 // embed_dim
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -389,7 +392,7 @@ if __name__ == "__main__":
     # output_path = "/home/yin178/Equvariant_Model_Distillation/outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/zero_init.ckpt"
     # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/double_channel/zero_init_v2.ckpt"
     # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/half_channel/192_zero_init_uniform_selection.ckpt"
-    output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/rot45/half_channel/96_zero_init_uniform_selection.ckpt"
+    output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/rot45/half_channel/192_zero_init_uniform_selection.ckpt"
     # output_path = "./outputs/CIFAR100/pretrained_ViT/student/initialization/vit_tiny_teacher/192_zero_init_uniform_selection.ckpt"
     
     
