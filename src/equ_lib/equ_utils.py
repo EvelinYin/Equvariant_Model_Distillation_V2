@@ -61,26 +61,36 @@ def gflip(x, dims=1):
     return x_flip.to(x.device)
 
 
-def BN2C_to_B2CHW(x):
-    B, N, _, C = x.shape
-    sqrt_N = int(math.sqrt(N))
-    return x.reshape(B, sqrt_N, sqrt_N, 2, C).permute(0,3,4,1,2)
+def BGCHW_to_BgCWH(x, num_group):
+    B, G, C, H, W = x.shape
+    return x.reshape(-1, C, W, H)
 
-def B2CHW_to_BN2C(x):
-    B, _, C, H, W = x.shape
-    N = H * W
-    return x.permute(0,3,4,1,2).reshape(B, N, 2, C)
 
-def BNC_to_B2CHW(x):
-    B, N, C = x.shape
-    sqrt_N = int(math.sqrt(N))
-    return x.reshape(B, sqrt_N, sqrt_N, C).permute(0,3,1,2).reshape(B, 2, -1, sqrt_N, sqrt_N)
+def BgCWH_to_BGCHW(x, num_group):
+    B_times_G, C, W, H = x.shape
+    B = B_times_G // num_group
+    return x.reshape(B, num_group, C, H, W)
 
-def B2CHW_to_BNC(x):
-    B, _, C, H, W = x.shape
-    N = H * W
-    return x.permute(0,3,4,1,2).reshape(B, N, -1)
-    
+# def BN2C_to_B2CHW(x):
+#     B, N, _, C = x.shape
+#     sqrt_N = int(math.sqrt(N))
+#     return x.reshape(B, sqrt_N, sqrt_N, 2, C).permute(0,3,4,1,2)
+
+# def B2CHW_to_BN2C(x):
+#     B, _, C, H, W = x.shape
+#     N = H * W
+#     return x.permute(0,3,4,1,2).reshape(B, N, 2, C)
+
+# def BNC_to_B2CHW(x):
+#     B, N, C = x.shape
+#     sqrt_N = int(math.sqrt(N))
+#     return x.reshape(B, sqrt_N, sqrt_N, C).permute(0,3,1,2).reshape(B, 2, -1, sqrt_N, sqrt_N)
+
+# def B2CHW_to_BNC(x):
+#     B, _, C, H, W = x.shape
+#     N = H * W
+#     return x.permute(0,3,4,1,2).reshape(B, N, -1)
+
 
 def check_input_compatibility(height, width, padding, kernel_size, stride):
         # Calculate Input + Total Padding - Kernel

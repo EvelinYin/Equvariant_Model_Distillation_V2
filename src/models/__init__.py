@@ -1,5 +1,5 @@
 from .ViT.equ_vit import EquViT
-from .ViT.pretrained_HF import PretrainedViT
+from .ViT.pretrained_HF import PretrainedModel
 from .ResNet50.equ_resnet import EquResNet
 from .canonicalizer.canonicalization import CanonicalizationNetwork
 from src.config import StudentModelConfig, TeacherModelConfig
@@ -12,7 +12,8 @@ from typing import Union
 # TODO: add cnn
 _MODELS = {
     # "base_vit": BaseViT,
-    "pretrained_ViT": PretrainedViT,
+    "pretrained_ViT": PretrainedModel,
+    "pretrained_resnet50": PretrainedModel,
     "equ_vit": EquViT,
     "equ_resnet50": EquResNet,
     "canonicalizer": CanonicalizationNetwork,
@@ -29,6 +30,8 @@ def get_model(name: str, config: Union[StudentModelConfig, TeacherModelConfig], 
     
     if name == "pretrained_ViT":
         params = config.pretrained_vit_config
+    elif name == "pretrained_resnet50":
+        params = config.resnet50_config
     elif "vit" in name:
         params = config.vit_config
     elif "cnn" in name:

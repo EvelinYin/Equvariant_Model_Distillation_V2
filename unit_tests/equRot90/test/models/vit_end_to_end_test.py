@@ -2,7 +2,6 @@ import torch
 import math
 from src.models.ViT.equ_vit import EquViT
 from src.equ_lib.groups.rot90_group import Rot90Group
-from src.equ_lib.equ_utils import BN2C_to_B2CHW, B2CHW_to_BN2C, BNC_to_B2CHW, B2CHW_to_BNC
 
 def test_vit_forward():
     depth = 1

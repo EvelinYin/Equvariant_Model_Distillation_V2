@@ -47,10 +47,9 @@ class GroupConvolution(torch.nn.Module):
         #     stride=self.stride
         # )
         
-        # Permute to [batch_dim, in_channels, group_dim, spatial_dim_1, spatial_dim_2]
+        # Permute to [B, C, G, H, W]
         x = x.permute(0, 2, 1, 3, 4)
 
-        ## YOUR CODE STARTS HERE ##
         x = x.reshape(
             -1,
             x.shape[1] * x.shape[2],

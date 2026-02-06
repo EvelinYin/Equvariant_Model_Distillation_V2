@@ -74,16 +74,25 @@ class CNNConfig:
     """Convolutional Neural Network configuration"""
     num_conv_layers: int = 5
     base_channels: int = 32
+    
+    
+@dataclass
+class ResNet50Config:
+    """ResNet50 configuration"""
+    model_name: str = 'microsoft/resnet-50'
+    num_classes: int = 100
+
 
 
 @dataclass
 class TeacherModelConfig:
     """Teacher model configuration"""
-    model_structure: str = "pretrained_ViT"  # "pretrained_ViT"
+    model_structure: str = "pretrained_ViT"  # "pretrained_ViT" or "pretrained_resnet50"
     vit_config: ViTConfig = field(default_factory=ViTConfig)
     pretrained_vit_config: PretrainedViTConfig = field(default_factory=PretrainedViTConfig)
     vit_config: ViTConfig = field(default_factory=ViTConfig)
     cnn_config: CNNConfig = field(default_factory=CNNConfig)
+    resnet50_config: ResNet50Config = field(default_factory=ResNet50Config)
     canonicalizer_config: CanonicalizerConfig = field(default_factory=CanonicalizerConfig)
 
 
@@ -95,6 +104,8 @@ class StudentModelConfig:
     model_structure: str = "equ_vit"  # "equ_vit" or "equ_resnet50"
     vit_config: ViTConfig = field(default_factory=ViTConfig)
     cnn_config: CNNConfig = field(default_factory=CNNConfig)
+    resnet50_config: ResNet50Config = field(default_factory=ResNet50Config)
+    
     
 @dataclass
 class TeacherTrainConfig:

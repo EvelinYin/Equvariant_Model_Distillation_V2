@@ -13,7 +13,7 @@ class HFModelWrapper(nn.Module):
         return self.model(x).logits
 
 
-class PretrainedViT(nn.Module):
+class PretrainedModel(nn.Module):
     """
     A class-based wrapper that calls your function during __init__.
     """

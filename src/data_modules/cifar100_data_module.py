@@ -23,22 +23,26 @@ class CIFAR100DataModule(BaseDataModule):
         
         # Data augmentation for training
         self.train_transform = transforms.Compose([
-            transforms.Resize((224, 224),
+            # transforms.Resize((224, 224),
+            #                   interpolation=InterpolationMode.BICUBIC),
+            
+            transforms.Resize((225, 225),
                               interpolation=InterpolationMode.BICUBIC),
+            
             transforms.RandomCrop(224, padding=4),
             transforms.RandomHorizontalFlip(),
             ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.4),  # ColorJitter
-            # transforms.RandomRotation(90),
-            transforms.RandomChoice([
-                    transforms.Lambda(lambda img: img),
-                    transforms.Lambda(lambda img: F.rotate(img, 45)),
-                    transforms.Lambda(lambda img: F.rotate(img, 90)),
-                    transforms.Lambda(lambda img: F.rotate(img, 135)),
-                    transforms.Lambda(lambda img: F.rotate(img, 180)),
-                    transforms.Lambda(lambda img: F.rotate(img, 225)),
-                    transforms.Lambda(lambda img: F.rotate(img, 270)),
-                    transforms.Lambda(lambda img: F.rotate(img, 315)),
-                ]),
+            transforms.RandomRotation(90),
+            # transforms.RandomChoice([
+            #         transforms.Lambda(lambda img: img),
+            #         transforms.Lambda(lambda img: F.rotate(img, 45)),
+            #         transforms.Lambda(lambda img: F.rotate(img, 90)),
+            #         transforms.Lambda(lambda img: F.rotate(img, 135)),
+            #         transforms.Lambda(lambda img: F.rotate(img, 180)),
+            #         transforms.Lambda(lambda img: F.rotate(img, 225)),
+            #         transforms.Lambda(lambda img: F.rotate(img, 270)),
+            #         transforms.Lambda(lambda img: F.rotate(img, 315)),
+            #     ]),
             RandAugment(
             num_ops=2,  # timm typically uses 2 ops for 'rand' variant
             magnitude=9,
